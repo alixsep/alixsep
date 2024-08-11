@@ -1,13 +1,14 @@
-### Welcome here!
+### Yo, What's Up?
 
-It feels good to know you're reading this!
+So you actually clicked on this? Bold move, friend. Let me bless your eyeballs with some straight facts.
 
-My name is Ali Sepahvand, also known as alixsep. If you're wondering where this nickname came from, it's a combination of "ali" and the first three letters of my last name, "sep". I added an "x" in between too, because my preferred username "alisep" was already taken on most platforms.
+Name's Ali Sepahvand, but since the internet is full of usernames stolen by bots and people who peaked in 2012, I go by alixsep. Yep, that 'x' is there because "alisep" was taken, and also because it makes me sound 0.1% cooler.
 
-I specialize in frontend development with React.js, but I also have other hobbies such as music production. My goal is to be helpful to people of all ages and backgrounds, and I find great joy in doing so. My favorite project is the Yugilife web app, which I've explained in detail on its about page.
+I use React.js. When I'm not busy turning coffee into code, I'm probably making music that only I think are fire. My life's mission? To make the world a better place (cap). If you want to see my pride and joy, check out Yugilife - my magnum opus that's probably as confused about its purpose as I am about life.
 
-Not going to make this a biography book haha,
-Enjoy your time with my repos :)
+But hey, I'm not here to write my autobiography. Ain't nobody got time for that shit.
 
-Best regards,
+Go poke around my repos. Or don’t. Your choice, no pressure.
+
+Stay savage,
 Alixsep
