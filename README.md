@@ -1,14 +1,7 @@
-### Yo Fucker, What's Up?
+### yo fucker, whats up?
 
-So you actually clicked on this? Bold move, friend. Let me bless your eyeballs with some straight facts.
+so you actually clicked on this? bold move, friend. let me bless your eyeballs with some straight facts.
 
-I'm the best React.js developer in the world. Name's Ali Sepahvand, but since the internet is full of usernames stolen by bots and people who peaked in 2012, I go by alixsep. Yep, that 'x' is there because "alisep" was taken, and also because it makes me sound 0.1% cooler.
+i'm the best react.js developer in the world. doubt it? hah, my name's ali sepahvand, you can call me Alixsep the fucking goat.
 
-When I'm not busy turning coffee into code, I'm probably making music that only I think are fire. My life's mission? To make the world a better place (cap). If you want to see my pride and joy, check out Yugilife - my magnum opus that's probably as confused about its purpose as I am about life.
-
-But hey, I'm not here to write my autobiography. Ain't nobody got time for that shit.
-
-Go poke around my repos. Or don’t. Your choice, no pressure.
-
-Stay savage,
-Alixsep
+that 'x' between my first and last name makes me sound 0.1% cooler. you know what's even cooler? when i'm not busy turning coffee into code, i'm probably making music that only i think is fire, but let's be real, my raps are objectively better than your top 5 spotify artists for a fact! wanna know my life's mission? to make the world a better place (cap). wanna see some dope shit? check out yugilife - my best project yet which is probably as confused about its purpose as i am about life. are you triggered snowflake? did you expect some normal ass readme on my github? well i am not a loser like you, get off that weak shit and go star and check my repos. or don't. your choice. no pressure. neither of us understand a single line of their source code anyways.
