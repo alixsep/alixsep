@@ -1,3 +1,1 @@
-### yo fucker, whats up?
-
-i'm the best react.js developer in the world. doubt it? hah, look at yourself writing your github readme using a fucking LLM lmaoooo at least i write my shit myself. oh also I make music that only i think is fire, but let's be real, my raps are objectively better than your top 5 spotify artists for a fact! wanna know my life's mission? to make the world a better place (cap). wanna see some dope shit? check out yugilife - my best project yet which is probably as confused about its purpose as i am about life. are you triggered snowflake? did you expect some normal ass readme on my github? well, i rather be original among people who've chosen to be sheeps. go star and check my repos. or don't. your choice. no pressure. neither of us would understand a single line of them anyways.
+# *
