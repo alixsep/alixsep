@@ -1,0 +1,95 @@
+---
+import FlatMark from "@/components/flat-mark.astro"
+import IconToggle from "@/components/icon-toggle.astro"
+
+const icon =
+  "size-[18px] fill-none stroke-current stroke-[1.5] [stroke-linecap:round] [stroke-linejoin:round]"
+const roll =
+  "flex flex-col gap-1 in-[.flat]:-translate-y-4 motion-safe:in-data-animated:[animation-delay:calc(var(--index)*60ms)] motion-safe:in-data-animated:in-[.flat]:animate-roll-to-2d motion-safe:in-data-animated:not-in-[.flat]:animate-roll-to-3d"
+const tooltip =
+  "pointer-events-none absolute top-[calc(100%+8px)] right-0 -translate-y-1 rounded-md bg-foreground px-2 py-1 text-meta whitespace-nowrap text-background opacity-0 transition-[opacity,translate] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+---
+
+<div class="flex items-center gap-1">
+  <IconToggle name="depth">
+    <span data-depth-label aria-hidden="true" class="inline-flex gap-1">
+      {[
+        ["3", "2", "3"],
+        ["D", "D", "D"],
+      ].map((characters, index) => (
+        <span class="h-3 overflow-hidden" style={{ "--index": index }}>
+          <span class={roll}>
+            {characters.map((text) => (
+              <FlatMark text={text} class="h-3 shrink-0" />
+            ))}
+          </span>
+        </span>
+      ))}
+    </span>
+    <span data-tooltip class={tooltip} data-depth-state="3d">
+      3D glass
+    </span>
+    <span data-tooltip class={tooltip} data-depth-state="2d">
+      2D type
+    </span>
+  </IconToggle>
+
+  <IconToggle name="theme">
+    <svg viewBox="0 0 24 24" aria-hidden="true" class={icon} data-theme-state="system">
+      <rect width="20" height="14" x="2" y="3" rx="2"></rect>
+      <path d="M8 21h8M12 17v4"></path>
+    </svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" class={icon} data-theme-state="light">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+    </svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" class={icon} data-theme-state="dark">
+      <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path>
+    </svg>
+    <span data-tooltip class={tooltip} data-theme-state="system">
+      System theme
+    </span>
+    <span data-tooltip class={tooltip} data-theme-state="light">
+      Light theme
+    </span>
+    <span data-tooltip class={tooltip} data-theme-state="dark">
+      Dark theme
+    </span>
+  </IconToggle>
+</div>
+
+<script>
+  import { isFlat, onDepthChange, setDepth } from "@/lib/depth"
+  import { readTheme, setTheme } from "@/lib/theme"
+
+  const themes = ["system", "light", "dark"] as const
+
+  onDepthChange(() => {
+    for (const label of document.querySelectorAll<HTMLElement>("[data-depth-label]")) {
+      label.dataset.animated = ""
+    }
+  })
+
+  const describe = () => {
+    for (const button of document.querySelectorAll<HTMLElement>("[data-toggle]")) {
+      const label = [...button.querySelectorAll<HTMLElement>("[data-tooltip]")].find(
+        (tooltip) => getComputedStyle(tooltip).display !== "none",
+      )
+      button.setAttribute("aria-label", label?.textContent ?? "")
+    }
+  }
+
+  for (const button of document.querySelectorAll<HTMLElement>("[data-toggle=theme]")) {
+    button.addEventListener("click", () => {
+      setTheme(themes[(themes.indexOf(readTheme()) + 1) % themes.length]!)
+      describe()
+    })
+  }
+  for (const button of document.querySelectorAll<HTMLElement>("[data-toggle=depth]")) {
+    button.addEventListener("click", () => {
+      setDepth(isFlat() ? "3d" : "2d")
+      describe()
+    })
+  }
+  describe()
+</script>

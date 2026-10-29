@@ -1,0 +1,163 @@
+---
+import FlatMark from "@/components/flat-mark.astro"
+import SiteHeader from "@/components/site-header.astro"
+import { headerFrame, heroFrame, titleMarks, titleSize } from "@/lib/layout"
+import { tour } from "@/site"
+
+const path = Astro.url.pathname
+const current = tour.findLastIndex(({ href }) =>
+  href === "/" ? path === "/" : path.startsWith(href),
+)
+const next = tour[(current + 1) % tour.length]!
+const home = next.href === "/"
+const marks = titleMarks(next.label)
+---
+
+<div data-next-page class="relative h-[160vh]">
+  <div data-next-stage class="sticky top-0 h-dvh overflow-hidden">
+    <div data-next-cue class="absolute inset-x-0 top-[22%] grid justify-items-center gap-6">
+      <span class="eyebrow">Next</span>
+    </div>
+    <div data-next-cue class="absolute inset-x-0 bottom-[22%] grid justify-items-center gap-6">
+      <span class="block h-px w-40 overflow-hidden bg-border">
+        <span data-next-progress class="block h-full origin-left scale-x-0 bg-foreground"></span>
+      </span>
+      <span class="eyebrow">Keep scrolling</span>
+    </div>
+
+    <div
+      data-next-curtain
+      inert
+      class="absolute inset-0 bg-background"
+      style="transform: translateY(100%)"
+    >
+      <SiteHeader path={next.href} />
+      {home ? (
+        <div class={heroFrame}>
+          <FlatMark text={next.label} class="invisible w-full" data-next-target />
+        </div>
+      ) : (
+        <div class={headerFrame}>
+          {marks.map((mark) => (
+            <FlatMark
+              text={mark.text}
+              class:list={["invisible", titleSize, mark.class]}
+              data-next-target
+            />
+          ))}
+        </div>
+      )}
+    </div>
+
+    {marks.map((mark) => (
+      <FlatMark
+        text={mark.text}
+        data-next-title
+        class:list={[
+          "absolute top-0 left-0 w-[min(88vw,72rem)] origin-top-left text-foreground",
+          mark.class,
+        ]}
+      />
+    ))}
+    <a
+      href={next.href}
+      data-next-link
+      aria-label={`Next page: ${next.label}`}
+      class="absolute inset-0"
+    ></a>
+  </div>
+</div>
+
+<script>
+  import { gsap } from "gsap"
+
+  const portal = document.querySelector<HTMLElement>("[data-next-page]")
+  const link = portal?.querySelector<HTMLAnchorElement>("[data-next-link]")
+  const stagePane = portal?.querySelector<HTMLElement>("[data-next-stage]")
+  const curtain = portal?.querySelector<HTMLElement>("[data-next-curtain]")
+  const progress = portal?.querySelector<HTMLElement>("[data-next-progress]")
+  const cues = portal ? [...portal.querySelectorAll<HTMLElement>("[data-next-cue]")] : []
+
+  if (portal && link && stagePane && curtain && progress) {
+    const flight = { move: 0 }
+    const root = document.documentElement
+    let journey: gsap.core.Tween | null = null
+    const visible = (selector: string) =>
+      [...portal.querySelectorAll<SVGElement>(selector)].find((mark) => mark.checkVisibility())
+
+    const layout = () => {
+      const title = visible("[data-next-title]")!
+      const target = visible("[data-next-target]")!
+      const pane = stagePane.getBoundingClientRect()
+      const from = title.getBoundingClientRect()
+      const width = from.width / Number(gsap.getProperty(title, "scale"))
+      const height = (width * from.height) / from.width
+      const shift = curtain.getBoundingClientRect().top - pane.top
+      const to = target.getBoundingClientRect()
+      return {
+        title,
+        start: { x: (pane.width - width) / 2, y: (pane.height - height) / 2 },
+        end: { x: to.left - pane.left, y: to.top - pane.top - shift, scale: to.width / width },
+      }
+    }
+
+    const place = (frame: ReturnType<typeof layout>) => {
+      const { move } = flight
+      const { title, start, end } = frame
+      gsap.set(title, {
+        x: start.x + (end.x - start.x) * move,
+        y: start.y + (end.y - start.y) * move,
+        scale: 1 + (end.scale - 1) * move,
+      })
+      gsap.set(curtain, { y: 0, yPercent: 100 * (1 - move) })
+      gsap.set(cues, { opacity: 1 - Math.min(1, move * 3) })
+    }
+
+    const settle = () => {
+      journey?.kill()
+      journey = null
+      flight.move = 0
+      root.style.removeProperty("overflow")
+      place(layout())
+    }
+
+    const leave = () => {
+      if (journey) return
+      root.style.overflow = "hidden"
+      const frame = layout()
+      journey = gsap.to(flight, {
+        move: 1,
+        duration: 1.2,
+        ease: "power3.inOut",
+        onUpdate: () => place(frame),
+        onComplete: () => {
+          sessionStorage.setItem("tour", "1")
+          location.assign(link.href)
+        },
+      })
+    }
+
+    addEventListener(
+      "scroll",
+      () => {
+        const travel = portal.offsetHeight - innerHeight
+        const reached = gsap.utils.clamp(0, 1, (scrollY - portal.offsetTop) / travel)
+        gsap.set(progress, { scaleX: reached })
+        if (reached >= 0.995) leave()
+      },
+      { passive: true },
+    )
+    link.addEventListener("click", (event) => {
+      event.preventDefault()
+      leave()
+    })
+    addEventListener("resize", () => {
+      if (!journey) place(layout())
+    })
+    addEventListener("pageswap", (event) => {
+      if (journey) event.viewTransition?.skipTransition()
+    })
+    addEventListener("pageshow", settle)
+    settle()
+  }
+</script>

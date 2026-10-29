@@ -1,0 +1,19 @@
+---
+import Chevron from "@/components/chevron.astro"
+
+interface Props {
+  href: string
+  label: string
+}
+
+const { href, label } = Astro.props
+---
+
+<a
+  href={href}
+  aria-label={`Back to ${label}`}
+  class="mb-8 inline-flex items-center gap-1 text-note text-muted-foreground transition-colors duration-300 hover:text-foreground"
+>
+  <Chevron direction="back" class="-ml-1.5" />
+  {label}
+</a>

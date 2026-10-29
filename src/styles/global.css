@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./tokens.css";
+@import "./theme.css";
+@import "./motion.css";
+@import "./base.css";
+@import "./utilities.css";
+@import "./glass.css";
+@import "./states.css";
+@import "./prose.css";
+
+@custom-variant dark (&:is(.dark *));

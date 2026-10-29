@@ -1,0 +1,64 @@
+@theme {
+  --ease-roll: cubic-bezier(0.7, 0, 0.2, 1);
+  --ease-arrive: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-arrive: arrive 900ms var(--ease-arrive) both;
+  --animate-skeleton: skeleton 1.4s ease-in-out infinite alternate;
+  --animate-roll-to-2d: roll-to-2d 550ms var(--ease-roll) backwards;
+  --animate-roll-to-3d: roll-to-3d 550ms var(--ease-roll) backwards;
+  --animate-tick: tick 2s ease-in-out infinite;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes tick {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes skeleton {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.05;
+  }
+}
+
+@keyframes roll-to-2d {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 -1rem;
+  }
+}
+
+@keyframes roll-to-3d {
+  from {
+    translate: 0 -1rem;
+  }
+  to {
+    translate: 0 -2rem;
+  }
+}

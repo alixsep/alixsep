@@ -1,0 +1,101 @@
+---
+import ExternalLink from "@/components/external-link.astro"
+import NextPage from "@/components/next-page.astro"
+import ReadingCrystals from "@/components/reading-crystals.astro"
+import { utcOffset } from "@/lib/format"
+import { profiles, site } from "@/site"
+
+const emails = [
+  { label: "General", address: site.email },
+  { label: "Studio", address: site.studioEmail },
+]
+---
+
+<footer class="mt-40">
+  <div class="shell">
+    <div data-reveal-line class="h-px origin-left bg-border"></div>
+    <div
+      data-reveal-children
+      class="grid grid-cols-2 gap-x-6 gap-y-10 pt-8 text-note lg:grid-cols-4"
+    >
+      <div class="col-span-2 grid content-start gap-2 lg:col-span-1">
+        <p class="eyebrow">Write</p>
+        <dl class="grid gap-3">
+          {emails.map(({ label, address }) => (
+            <div>
+              <dt class="text-muted-foreground">{label}</dt>
+              <dd>
+                <a href={`mailto:${address}`} class="link-quiet">
+                  {address}
+                </a>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <div class="grid content-start gap-2">
+        <p class="eyebrow">Elsewhere</p>
+        <ul class="grid gap-2">
+          {profiles.map(({ href, label }) => (
+            <li>
+              <ExternalLink href={href} rel="me" class="link-quiet">
+                {label}
+              </ExternalLink>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="col-span-2 grid content-start gap-2 max-lg:order-last lg:col-span-1">
+        <p class="eyebrow">Local time</p>
+        <p class="flex font-mark text-[28px]" data-clock aria-hidden="true">
+          <span data-hour>--</span>
+          <span class="motion-safe:animate-tick">:</span>
+          <span data-minute>--</span>
+        </p>
+        <p class="text-muted-foreground">
+          {site.location} · {utcOffset(site.timeZone)}
+        </p>
+      </div>
+      <div class="grid content-start gap-2">
+        <p class="eyebrow">Site</p>
+        <a href="/type/" class="link-quiet">
+          Typeface
+        </a>
+        <a href="/rss.xml" class="link-quiet">
+          RSS
+        </a>
+        <a href="/llms.txt" class="link-quiet">
+          llms.txt
+        </a>
+        <p class="text-muted-foreground lining-nums">
+          © {new Date().getFullYear()} {site.name}
+        </p>
+      </div>
+    </div>
+    <ReadingCrystals class="mt-20" />
+  </div>
+
+  <NextPage />
+</footer>
+
+<script>
+  import { site } from "@/site"
+
+  const clocks = document.querySelectorAll<HTMLElement>("[data-clock]")
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: site.timeZone,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+  const tick = () => {
+    const parts = time.formatToParts(new Date())
+    const part = (type: "hour" | "minute") => parts.find((each) => each.type === type)!.value
+    for (const clock of clocks) {
+      clock.querySelector("[data-hour]")!.textContent = part("hour")
+      clock.querySelector("[data-minute]")!.textContent = part("minute")
+    }
+  }
+  tick()
+  setInterval(tick, 10_000)
+</script>

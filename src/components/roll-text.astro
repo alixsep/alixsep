@@ -1,0 +1,36 @@
+---
+interface Props {
+  text: string
+  onHover?: boolean
+  class?: string
+}
+
+const roll =
+  "translate-y-[var(--roll,0%)] transition-[translate] delay-[calc(var(--index)*var(--stagger,16ms))] duration-550 ease-roll in-data-still:transition-none motion-reduce:transition-none"
+const { text, onHover = true, class: className } = Astro.props
+let index = 0
+const words = text
+  .split(" ")
+  .map((word) => [...word].map((character) => ({ character, index: index++ })))
+---
+
+<span class:list={[onHover && "in-[a:hover]:[--roll:-100%]", className]}>
+  <span class="sr-only">{text}</span>
+  {words.map((word) => (
+    <>
+      <span aria-hidden="true" class="inline-block whitespace-nowrap">
+        {word.map(({ character, index }) => (
+          <span
+            data-glyph
+            class="inline-flex h-lh flex-col overflow-hidden"
+            style={{ "--index": index }}
+          >
+            {(onHover ? [character, character] : [character]).map((copy) => (
+              <span class={roll}>{copy}</span>
+            ))}
+          </span>
+        ))}
+      </span>{" "}
+    </>
+  ))}
+</span>

@@ -1,0 +1,17 @@
+---
+import { formatDate, readingMinutes } from "@/lib/format"
+
+interface Props {
+  date: Date
+  body?: string | undefined
+  class?: string
+}
+
+const { date, body, class: className } = Astro.props
+---
+
+<p class:list={["eyebrow lining-nums tabular-nums", className]}>
+  <time datetime={date.toISOString()}>{formatDate(date)}</time>
+  <span class="px-1">·</span>
+  {readingMinutes(body)} min read
+</p>

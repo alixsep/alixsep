@@ -1,0 +1,38 @@
+---
+import ReleaseCover from "@/components/release-cover.astro"
+import { RECORD_MARGIN } from "@/glass/geometry"
+
+import type { ComponentProps } from "astro/types"
+
+type Props = ComponentProps<typeof ReleaseCover>
+
+const overhang = `${-RECORD_MARGIN * 100}%`
+const span = `${(1 + 2 * RECORD_MARGIN) * 100}%`
+---
+
+<div data-glass-record class="relative">
+  <canvas
+    aria-hidden="true"
+    class="pointer-events-none absolute opacity-0"
+    style={{ top: overhang, left: overhang, width: span, height: span }}
+  ></canvas>
+  <ReleaseCover {...Astro.props} />
+</div>
+
+<script>
+  import { holdGlass } from "@/glass/pool"
+  import { mountRecord } from "@/glass/record"
+
+  for (const frame of document.querySelectorAll<HTMLElement>("[data-glass-record]")) {
+    holdGlass(frame, {
+      mount: (signal) => mountRecord(frame, signal),
+      restore: () => {
+        const canvas = frame.querySelector("canvas")!
+        const fresh = canvas.cloneNode() as HTMLCanvasElement
+        fresh.style.opacity = ""
+        fresh.toggleAttribute("data-fallback", true)
+        canvas.replaceWith(fresh)
+      },
+    })
+  }
+</script>

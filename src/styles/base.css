@@ -1,0 +1,62 @@
+::selection {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html.held {
+  overflow: hidden;
+}
+
+/* Radix scroll lock adds a scrollbar-width margin that the gutter already reserves. */
+body[data-scroll-locked][data-scroll-locked] {
+  margin-right: 0 !important;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 1px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  a:focus-visible {
+    border-radius: 2px;
+  }
+}
+
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--overlay) / 0.08) transparent;
+  }
+}

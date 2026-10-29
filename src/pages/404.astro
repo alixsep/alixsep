@@ -1,0 +1,15 @@
+---
+import GlassMark from "@/components/glass-mark.astro"
+import Base from "@/layouts/base.astro"
+---
+
+<Base title="Not found" description="This page does not exist." noindex>
+  <div class="shell grid justify-items-center pt-[16vh] text-center">
+    <h1 class="sr-only">Page not found</h1>
+    <GlassMark text="404" class="w-[min(560px,80vw)]" />
+    <p class="mt-[10vh] text-heading">This page is not here.</p>
+    <a href="/" class="link mt-4 text-muted-foreground">
+      Back to the start
+    </a>
+  </div>
+</Base>

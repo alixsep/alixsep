@@ -1,0 +1,36 @@
+---
+import { card } from "@/lib/surface"
+
+interface Props {
+  label: string
+  href?: string | undefined
+  status?: string | undefined
+  class?: string | undefined
+}
+
+const { label, href, status, class: className } = Astro.props
+---
+
+<article
+  data-reveal
+  data-reveal-children
+  class:list={[
+    "group relative flex flex-col outline-offset-2 outline-focus-ring has-[h2_a:focus-visible]:outline lg:min-h-80 overflow-hidden rounded-card p-6 sm:p-8",
+    card,
+    className,
+  ]}
+>
+  <header class="flex items-baseline justify-between gap-4">
+    <h2 class="eyebrow">
+      {href ? (
+        <a href={href} class="after:absolute after:inset-0 after:z-1 focus-visible:outline-none">
+          {label}
+        </a>
+      ) : (
+        label
+      )}
+    </h2>
+    {status && <span class="text-note text-muted-foreground italic">{status}</span>}
+  </header>
+  <slot />
+</article>

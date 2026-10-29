@@ -1,0 +1,44 @@
+---
+import { Picture } from "astro:assets"
+
+import type { Release } from "@/data/music"
+
+interface Props {
+  release: Release
+  widths: number[]
+  sizes: string
+  loading?: "eager" | "lazy"
+  class?: string | undefined
+}
+
+const { release, widths, sizes, loading = "lazy", class: className } = Astro.props
+---
+
+<span
+  data-skeleton
+  data-cover
+  class:list={[
+    "relative block aspect-square w-full overflow-hidden bg-foreground/[0.06]",
+    className,
+  ]}
+>
+  <Picture
+    src={release.cover}
+    alt={`Cover art of ${release.title}`}
+    formats={["avif", "webp"]}
+    widths={widths}
+    sizes={sizes}
+    loading={loading}
+    class="size-full rounded-[inherit] object-cover outline outline-1 -outline-offset-1 outline-foreground/10"
+  />
+</span>
+
+<script>
+  for (const skeleton of document.querySelectorAll<HTMLElement>("[data-skeleton]")) {
+    const image = skeleton.querySelector("img")!
+    const loaded = () => skeleton.toggleAttribute("data-loaded", true)
+    if (image.complete) loaded()
+    image.addEventListener("load", loaded, { once: true })
+    image.addEventListener("error", loaded, { once: true })
+  }
+</script>

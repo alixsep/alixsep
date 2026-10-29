@@ -1,0 +1,14 @@
+---
+import { newTab } from "@/lib/markdown"
+
+import type { HTMLAttributes } from "astro/types"
+
+type Props = HTMLAttributes<"a">
+
+const { "aria-label": label, ...props } = Astro.props
+---
+
+<a target="_blank" aria-label={label && `${label} ${newTab}`} {...props}>
+  <slot />
+  <span class="sr-only"> {newTab}</span>
+</a>

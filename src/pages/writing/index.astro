@@ -1,0 +1,23 @@
+---
+import PageHeader from "@/components/page-header.astro"
+import PostList from "@/components/post-list.astro"
+import Base from "@/layouts/base.astro"
+import { getPosts } from "@/lib/content"
+import { space } from "@/lib/layout"
+import { site, writing } from "@/site"
+
+const posts = await getPosts()
+---
+
+<Base title="Writing" description={`Writings by ${site.name}.`}>
+  <PageHeader title="Writing" lede={writing.lede} />
+  <div class="shell">
+    {posts.length ? (
+      <PostList posts={posts} />
+    ) : (
+      <p data-reveal class:list={["max-w-[36ch] text-headline leading-snug", space.block]}>
+        {writing.pending}
+      </p>
+    )}
+  </div>
+</Base>

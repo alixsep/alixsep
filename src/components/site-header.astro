@@ -1,0 +1,41 @@
+---
+import GlassButton from "@/components/glass-button.astro"
+import HeaderToggles from "@/components/header-toggles.astro"
+import Logo from "@/components/logo.astro"
+import { nav, site } from "@/site"
+
+interface Props {
+  path?: string
+}
+
+const { path = Astro.url.pathname } = Astro.props
+const firstRow = Math.ceil(nav.length / 2)
+---
+
+<header class="shell flex flex-wrap items-center justify-between gap-x-3 gap-y-3 pt-6 pb-4 sm:gap-x-8">
+  <a href="/" class="-m-2 p-2" aria-label={`${site.name}, home`}>
+    <Logo class="h-3.5" />
+  </a>
+  <nav aria-label="Main" class="order-last w-full xl:order-none xl:w-auto">
+    <ul class="flex flex-wrap justify-center gap-x-2.5 text-note sm:gap-x-1 sm:text-copy xl:justify-start">
+      {nav.map(({ href, label }, index) => (
+        <>
+          {index === firstRow && <li aria-hidden="true" class="basis-full sm:hidden"></li>}
+          <li>
+            <a
+              href={href}
+              aria-current={path.startsWith(href) ? "page" : undefined}
+              class="block rounded-lg px-0.5 py-1 text-muted-foreground sm:px-2 transition-colors duration-150 hover:text-foreground aria-[current=page]:text-foreground"
+            >
+              {label}
+            </a>
+          </li>
+        </>
+      ))}
+    </ul>
+  </nav>
+  <div class="flex items-center gap-2 sm:ml-auto sm:gap-3">
+    <HeaderToggles />
+    <GlassButton href={site.contact} label="Contact" />
+  </div>
+</header>

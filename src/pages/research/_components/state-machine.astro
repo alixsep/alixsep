@@ -1,0 +1,197 @@
+---
+import Panel from "./panel.astro"
+
+const RADIUS = 34
+const STATES = {
+  open: { label: "Open", x: 180, y: 50 },
+  active: { label: "Active", x: 180, y: 190 },
+  waiting: { label: "Waiting", x: 310, y: 190 },
+  resolved: { label: "Resolved", x: 180, y: 330 },
+}
+type State = keyof typeof STATES
+const EVENTS: { name: string; from: State; to: State; bend: number }[] = [
+  { name: "Start", from: "open", to: "active", bend: 0 },
+  { name: "Ask", from: "active", to: "waiting", bend: 24 },
+  { name: "Reply", from: "waiting", to: "active", bend: 24 },
+  { name: "Resolve", from: "active", to: "resolved", bend: 0 },
+  { name: "Reopen", from: "resolved", to: "open", bend: -220 },
+]
+
+const edges = EVENTS.map(({ name, from, to, bend }) => {
+  const [a, b] = [STATES[from], STATES[to]]
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  const [nx, ny] = [(a.y - b.y) / length, (b.x - a.x) / length]
+  const control = { x: (a.x + b.x) / 2 + nx * bend, y: (a.y + b.y) / 2 + ny * bend }
+  const edge = (point: { x: number; y: number }, gap: number) => {
+    const reach = Math.hypot(control.x - point.x, control.y - point.y)
+    const at = (axis: "x" | "y") => point[axis] + ((control[axis] - point[axis]) / reach) * gap
+    return `${at("x").toFixed(1)} ${at("y").toFixed(1)}`
+  }
+  const side = Math.sign(bend) || 1
+  const outward = nx * side
+  return {
+    name,
+    from,
+    to,
+    path: `M${edge(a, RADIUS)}Q${control.x.toFixed(1)} ${control.y.toFixed(1)} ${edge(b, RADIUS + 3)}`,
+    label: {
+      x: (a.x + b.x) / 4 + control.x / 2 + nx * side * 10,
+      y: (a.y + b.y) / 4 + control.y / 2 + ny * side * 14,
+      anchor: outward > 0.5 ? "start" : outward < -0.5 ? "end" : "middle",
+    },
+  }
+})
+const START: State = "open"
+---
+
+<Panel
+  data-state-machine
+  caption="A finite-state machine: every event is allowed in some states and not others."
+>
+  <svg viewBox="0 0 360 380" aria-hidden="true" class="mx-auto w-full max-w-md overflow-visible">
+    <defs>
+      <marker
+        id="state-arrow"
+        viewBox="0 0 8 8"
+        refX="7"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        orient="auto-start-reverse"
+      >
+        <path d="M0 0L8 4L0 8z" class="fill-muted-foreground"></path>
+      </marker>
+    </defs>
+    {edges.map(({ name, path, label }) => (
+      <g
+        data-edge={name}
+        class="text-muted-foreground transition-colors duration-300 data-active:text-foreground"
+      >
+        <path
+          d={path}
+          marker-end="url(#state-arrow)"
+          class="fill-none stroke-current [vector-effect:non-scaling-stroke]"
+        />
+        <text
+          x={label.x}
+          y={label.y}
+          text-anchor={label.anchor}
+          dominant-baseline="middle"
+          class="fill-current stroke-surface-2 stroke-[6px] text-meta [paint-order:stroke]"
+        >
+          {name.toLowerCase()}
+        </text>
+      </g>
+    ))}
+    {Object.entries(STATES).map(([id, { label, x, y }]) => (
+      <g data-state={id} data-current={id === START ? "" : undefined} class="group">
+        <circle
+          cx={x}
+          cy={y}
+          r={RADIUS}
+          class="fill-tint transition-colors duration-500 group-data-current:fill-foreground"
+        />
+        <text
+          x={x}
+          y={y}
+          text-anchor="middle"
+          dominant-baseline="central"
+          class="fill-foreground text-note transition-colors duration-500 group-data-current:fill-background"
+        >
+          {label}
+        </text>
+      </g>
+    ))}
+    <circle data-token r="5" class="fill-foreground opacity-0"></circle>
+  </svg>
+  <div class="mt-6 grid grid-cols-3 gap-2 @lg:grid-cols-5">
+    {EVENTS.map(({ name, from, to }) => (
+      <button
+        type="button"
+        data-event={name}
+        data-from={from}
+        data-to={to}
+        disabled={from !== START}
+        class="rounded-full px-3 py-1.5 text-note ring-1 ring-border transition-[opacity,background-color] duration-300 hover:bg-hover data-pressed:bg-active disabled:pointer-events-none disabled:opacity-35"
+      >
+        {name}
+      </button>
+    ))}
+    <p class="sr-only">
+      Current state: <output aria-live="polite">{STATES[START].label}</output>
+    </p>
+  </div>
+</Panel>
+
+<script>
+  import { gsap } from "gsap"
+
+  import { demo } from "../_lib/demo"
+
+  const TOUR = ["Start", "Ask", "Reply", "Resolve", "Reopen"]
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-state-machine]")) {
+    const token = figure.querySelector<SVGCircleElement>("[data-token]")!
+    const readout = figure.querySelector("output")!
+    const buttons = [...figure.querySelectorAll<HTMLButtonElement>("[data-event]")]
+    const states = [...figure.querySelectorAll<SVGGElement>("[data-state]")]
+    let current = figure.querySelector<SVGGElement>("[data-current]")!.dataset.state
+
+    const settle = (refocus: boolean) => {
+      const state = states.find(({ dataset }) => dataset.state === current)!
+      state.toggleAttribute("data-current", true)
+      readout.textContent = state.textContent!.trim()
+      for (const button of buttons) button.disabled = button.dataset.from !== current
+      if (refocus) buttons.find(({ disabled }) => !disabled)?.focus()
+    }
+
+    const travel = (button: HTMLButtonElement, refocus = false) => {
+      const edge = figure.querySelector<SVGGElement>(`[data-edge="${button.dataset.event}"]`)!
+      const path = edge.querySelector("path")!
+      const length = path.getTotalLength()
+      current = button.dataset.to
+      for (const other of buttons) other.disabled = true
+      for (const state of states) state.removeAttribute("data-current")
+      edge.toggleAttribute("data-active", true)
+      const finish = () => {
+        edge.removeAttribute("data-active")
+        gsap.set(token, { opacity: 0 })
+        settle(refocus)
+      }
+      if (still) return finish()
+      const progress = { along: 0 }
+      gsap.set(token, { opacity: 1 })
+      gsap.to(progress, {
+        along: length,
+        duration: 0.8,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          const { x, y } = path.getPointAtLength(progress.along)
+          token.setAttribute("cx", String(x))
+          token.setAttribute("cy", String(y))
+        },
+        onComplete: finish,
+      })
+    }
+
+    for (const button of buttons)
+      button.addEventListener("click", () => travel(button, document.activeElement === button))
+
+    demo(
+      figure,
+      (function* () {
+        for (;;) {
+          for (const name of TOUR) {
+            const button = buttons.find(({ dataset }) => dataset.event === name)!
+            button.toggleAttribute("data-pressed", true)
+            yield 240
+            button.removeAttribute("data-pressed")
+            travel(button)
+            yield 1800
+          }
+        }
+      })(),
+    )
+  }
+</script>

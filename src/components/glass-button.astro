@@ -1,0 +1,56 @@
+---
+interface Props {
+  href: string
+  label: string
+}
+
+const { href, label } = Astro.props
+---
+
+<a
+  href={href}
+  data-glass-button
+  class="group relative isolate grid h-10 place-items-center px-5 sm:w-32 sm:px-0 text-note text-background transition-transform duration-300 active:scale-[0.97]"
+>
+  <span
+    aria-hidden="true"
+    class="absolute inset-0 -z-20 bg-foreground [clip-path:polygon(6px_0,calc(100%-6px)_0,100%_6px,100%_calc(100%-6px),calc(100%-6px)_100%,6px_100%,0_calc(100%-6px),0_6px)]"
+  ></span>
+  <canvas
+    aria-hidden="true"
+    class="pointer-events-none absolute -top-3 -left-3 -z-10 h-[calc(100%+1.5rem)] w-[calc(100%+1.5rem)] opacity-0 group-data-cut:opacity-100"
+  ></canvas>
+  <span data-label>{label}</span>
+</a>
+
+<script>
+  import { mountGlassButton } from "@/glass/button"
+  import { holdGlass } from "@/glass/pool"
+
+  const buttons = [...document.querySelectorAll<HTMLElement>("[data-glass-button]")].filter(
+    (button) => !button.closest("[inert]"),
+  )
+
+  for (const button of buttons) {
+    let entrance = true
+    let width = button.offsetWidth
+    const glass = holdGlass(button, {
+      mount: (signal) => mountGlassButton(button, signal, { entrance }),
+      restore: () => {
+        const canvas = button.querySelector("canvas")!
+        canvas.replaceWith(canvas.cloneNode())
+        for (const part of button.querySelectorAll<HTMLElement>(":scope > :not(canvas)")) {
+          part.style.opacity = "1"
+        }
+      },
+    })
+
+    // The slab is cut to the button's width, so a button that changes width needs a new one.
+    new ResizeObserver(() => {
+      if (button.offsetWidth === width) return
+      width = button.offsetWidth
+      entrance = false
+      glass.reset()
+    }).observe(button)
+  }
+</script>

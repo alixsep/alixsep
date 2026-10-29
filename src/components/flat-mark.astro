@@ -1,0 +1,22 @@
+---
+import { flatMarkup } from "@/glass/figure"
+import { CAP_HEIGHT, setText } from "@/glass/font"
+
+import type { HTMLAttributes } from "astro/types"
+
+interface Props extends HTMLAttributes<"svg"> {
+  text: string
+}
+
+const { text, class: className, ...attributes } = Astro.props
+const mark = setText(text)
+---
+
+<svg
+  viewBox={`0 0 ${mark.width} ${mark.height}`}
+  style={{ "--ratio": mark.width / mark.height, "--span": mark.width / CAP_HEIGHT }}
+  aria-hidden="true"
+  class:list={["flat-mark", className]}
+  set:html={flatMarkup(mark)}
+  {...attributes}
+/>

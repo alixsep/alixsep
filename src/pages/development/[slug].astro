@@ -1,0 +1,93 @@
+---
+import { render } from "astro:content"
+
+import ExternalLink from "@/components/external-link.astro"
+import GlassSculpture from "@/components/glass-sculpture.astro"
+import PageHeader from "@/components/page-header.astro"
+import { isSculpture } from "@/glass/sculptures"
+import Base from "@/layouts/base.astro"
+import { getWork } from "@/lib/content"
+import { space } from "@/lib/layout"
+
+import type { GetStaticPaths } from "astro"
+import type { CollectionEntry } from "astro:content"
+
+export const getStaticPaths = (async () => {
+  const work = await getWork()
+  return work.map((entry, index) => ({
+    params: { slug: entry.id },
+    props: { entry, previous: work[index - 1], next: work[index + 1] },
+  }))
+}) satisfies GetStaticPaths
+
+interface Props {
+  entry: CollectionEntry<"work">
+  previous?: CollectionEntry<"work"> | undefined
+  next?: CollectionEntry<"work"> | undefined
+}
+
+const { entry, previous, next } = Astro.props
+const { Content } = await render(entry)
+const { title, summary, years, stack, links } = entry.data
+const mark = isSculpture(entry.id) ? entry.id : undefined
+const neighbors = [
+  { label: "Previous", entry: previous, class: "mr-auto" },
+  { label: "Next", entry: next, class: "ml-auto text-right" },
+]
+---
+
+<Base title={title} description={summary}>
+  <article>
+    <PageHeader back={{ href: "/development/", label: "Development" }} title={title} />
+    <div class="shell">
+      <div class="grid items-start gap-10 md:grid-cols-[minmax(0,4fr)_minmax(0,5fr)] lg:gap-16">
+        <div data-reveal class="relative aspect-square md:sticky md:top-24">
+          {mark && (
+            <GlassSculpture name={mark} class="top-1/2 left-1/2 h-full w-auto -translate-1/2" />
+          )}
+        </div>
+        <div data-reveal-children class="grid gap-10">
+          <p class="text-headline leading-snug">{summary}</p>
+          <dl class="grid grid-cols-2 gap-x-8 gap-y-6 text-copy">
+            <div>
+              <dt class="eyebrow">Years</dt>
+              <dd class="lining-nums">{years}</dd>
+            </div>
+            <div>
+              <dt class="eyebrow">Built with</dt>
+              <dd>{stack.join(", ")}</dd>
+            </div>
+            <div>
+              <dt class="eyebrow">Links</dt>
+              {links.map(({ label, href }) => (
+                <dd>
+                  <ExternalLink href={href} class="link">
+                    {label}
+                  </ExternalLink>
+                </dd>
+              ))}
+            </div>
+          </dl>
+          <div class="prose chapters text-copy">
+            <Content />
+          </div>
+        </div>
+      </div>
+      <nav
+        aria-label="More projects"
+        data-reveal
+        class:list={["flex justify-between gap-6", space.block]}
+      >
+        {neighbors.map(
+          ({ label, entry: other, class: side }) =>
+            other && (
+              <a href={`/development/${other.id}/`} class:list={["grid gap-1 text-lead", side]}>
+                <span class="eyebrow">{label}</span>
+                <span class="link-quiet">{other.data.title}</span>
+              </a>
+            ),
+        )}
+      </nav>
+    </div>
+  </article>
+</Base>

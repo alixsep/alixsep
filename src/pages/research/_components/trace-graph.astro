@@ -1,0 +1,141 @@
+---
+import Panel from "./panel.astro"
+
+const COLUMNS = [
+  {
+    title: "Task",
+    nodes: [
+      { id: "submit", label: "Submit ticket", to: ["submits"] },
+      { id: "review", label: "Review ticket", to: ["reviews"] },
+      { id: "close", label: "Close ticket", to: ["closes"] },
+    ],
+  },
+  {
+    title: "Scenario",
+    nodes: [
+      { id: "submits", label: "User submits a ticket", to: ["submit.spec"] },
+      { id: "reviews", label: "Agent reviews it", to: ["review.spec"] },
+      { id: "closes", label: "Agent closes it", to: ["close.spec"] },
+    ],
+  },
+  {
+    title: "Test",
+    nodes: [
+      { id: "submit.spec", label: "submit.spec", to: ["tickets.ts"] },
+      { id: "review.spec", label: "review.spec", to: ["review.ts"] },
+      { id: "close.spec", label: "close.spec", to: ["tickets.ts", "review.ts"] },
+    ],
+  },
+  {
+    title: "Code",
+    nodes: [
+      { id: "tickets.ts", label: "tickets.ts", to: [] },
+      { id: "review.ts", label: "review.ts", to: [] },
+    ],
+  },
+]
+---
+
+<Panel
+  data-trace-graph
+  caption="Each task traced to the scenario that describes it, the test that runs it, and the code it reaches. Point at any of them to follow the chain."
+>
+  <p aria-hidden="true" class="eyebrow mb-4 @2xl:hidden">
+    {COLUMNS.map(({ title }) => title).join(" → ")}
+  </p>
+  <div class="relative grid gap-8 @2xl:grid-cols-4">
+    <svg
+      aria-hidden="true"
+      class="pointer-events-none absolute inset-0 size-full overflow-visible"
+    ></svg>
+    {COLUMNS.map(({ title, nodes }) => (
+      <div data-column class="relative grid content-start gap-3">
+        <p class="eyebrow @max-2xl:sr-only">{title}</p>
+        <ul class="grid grid-cols-3 gap-2 @2xl:h-full @2xl:grid-cols-1 @2xl:content-around @2xl:gap-4">
+          {nodes.map(({ id, label, to }) => (
+            <li>
+              <button
+                type="button"
+                data-node={id}
+                data-to={to.join(" ")}
+                class="w-full rounded-xl bg-tint px-2 py-2 text-center text-note @2xl:px-3 @2xl:text-left leading-snug transition-opacity duration-300 in-data-chain:opacity-30 data-lit:opacity-100!"
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+</Panel>
+
+<script>
+  import { demo } from "../_lib/demo"
+  import { connect, svgElement, within } from "../_lib/diagram"
+
+  const TOUR = ["submit", "close", "tickets.ts", "review.ts"]
+
+  const LINK =
+    "fill-none stroke-border-strong transition-[stroke,opacity] duration-300 in-data-chain:opacity-20 data-lit:stroke-foreground data-lit:opacity-100!"
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-trace-graph]")) {
+    const svg = figure.querySelector("svg")!
+    const [first, second] = figure.querySelectorAll("[data-column]")
+    const nodes = [...figure.querySelectorAll<HTMLElement>("[data-node]")]
+    const byId = new Map(nodes.map((node) => [node.dataset.node!, node]))
+    const links = nodes.flatMap((from) =>
+      from.dataset.to!.split(" ").flatMap((id) => (id ? [{ from, to: byId.get(id)! }] : [])),
+    )
+    const paths = links.map(() => svg.appendChild(svgElement("path", { class: LINK })))
+
+    const draw = () => {
+      const origin = svg.getBoundingClientRect()
+      const across = second!.getBoundingClientRect().left >= first!.getBoundingClientRect().right
+      links.forEach(({ from, to }, i) =>
+        paths[i]!.setAttribute("d", connect(within(from, origin), within(to, origin), across)),
+      )
+    }
+
+    const follow = (start: HTMLElement, direction: "from" | "to") => {
+      const opposite = direction === "from" ? "to" : "from"
+      const found = new Set([start])
+      for (const node of found)
+        for (const link of links) if (link[direction] === node) found.add(link[opposite])
+      return found
+    }
+    const light = (node?: HTMLElement) => {
+      const chain = new Set(node ? [...follow(node, "from"), ...follow(node, "to")] : [])
+      figure.toggleAttribute("data-chain", chain.size > 0)
+      for (const each of nodes) each.toggleAttribute("data-lit", chain.has(each))
+      links.forEach(({ from, to }, i) =>
+        paths[i]!.toggleAttribute("data-lit", chain.has(from) && chain.has(to)),
+      )
+    }
+
+    const stop = demo(
+      figure,
+      (function* () {
+        for (;;) {
+          for (const id of TOUR) {
+            light(byId.get(id))
+            yield 1900
+            light()
+            yield 450
+          }
+        }
+      })(),
+    )
+
+    for (const node of nodes) {
+      node.addEventListener("pointerenter", () => {
+        stop()
+        light(node)
+      })
+      node.addEventListener("focus", () => light(node))
+      node.addEventListener("pointerleave", () => light())
+      node.addEventListener("blur", () => light())
+    }
+    new ResizeObserver(draw).observe(svg)
+  }
+</script>

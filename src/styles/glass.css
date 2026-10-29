@@ -1,0 +1,33 @@
+.flat-mark {
+  overflow: visible;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0.03;
+
+  & .sketch {
+    display: none;
+    fill: none;
+    stroke-width: 0.05;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+}
+
+html.js:not(.flat) {
+  & [data-glass-button]:not([data-fallback]) > :not(canvas),
+  & canvas:not([data-fallback]) + :is([data-cover], [data-covers]) {
+    opacity: 0;
+  }
+}
+
+html.js:not(.flat, .arriving) [data-glass]:not([data-flat]) .flat-mark {
+  & polygon {
+    display: none;
+  }
+
+  & .sketch {
+    display: inline;
+  }
+}

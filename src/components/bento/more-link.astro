@@ -1,0 +1,22 @@
+---
+import Chevron from "@/components/chevron.astro"
+
+interface Props {
+  href: string
+  count: number
+  section: string
+}
+
+const { href, count, section } = Astro.props
+---
+
+{count > 0 && (
+  <a
+    href={href}
+    aria-label={`${count} more in ${section}`}
+    class="flex items-center justify-center gap-1 text-note text-muted-foreground transition-colors duration-300 hover:text-foreground"
+  >
+    +{count} more
+    <Chevron direction="forward" />
+  </a>
+)}

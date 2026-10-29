@@ -1,0 +1,43 @@
+---
+import FlatMark from "@/components/flat-mark.astro"
+import { figureLayout } from "@/glass/figure"
+import { setText } from "@/glass/font"
+
+interface Props {
+  text: string
+  /** Mounted by the page itself, which can then re-cut it. */
+  live?: boolean
+  class?: string
+}
+
+const { text, live = false, class: className } = Astro.props
+const layout = figureLayout(setText(text))
+---
+
+<figure
+  aria-hidden="true"
+  data-glass
+  data-text={text}
+  data-live={live || undefined}
+  class:list={["relative aspect-(--ratio)", className]}
+  style={{ "--ratio": layout.ratio, "--span": layout.span }}
+>
+  <FlatMark text={text} class="absolute inset-0 size-full" />
+  <canvas class="pointer-events-none absolute opacity-0" style={layout.canvas}></canvas>
+</figure>
+
+<script>
+  import { recut } from "@/glass/figure"
+  import { mountGlass } from "@/glass/mount"
+  import { holdGlass } from "@/glass/pool"
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-glass]:not([data-live])")) {
+    holdGlass(figure, {
+      mount: (signal) => mountGlass(figure, signal),
+      restore: () => {
+        recut(figure, figure.dataset.text!)
+        figure.dataset.flat = ""
+      },
+    })
+  }
+</script>

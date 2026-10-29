@@ -1,0 +1,13 @@
+---
+interface Props {
+  name: string
+}
+---
+
+<button
+  type="button"
+  data-toggle={Astro.props.name}
+  class="group relative grid h-9 min-w-9 cursor-pointer px-2 place-items-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground"
+>
+  <slot />
+</button>

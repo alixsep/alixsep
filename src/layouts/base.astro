@@ -1,0 +1,149 @@
+---
+import vollkorn from "@fontsource-variable/vollkorn/files/vollkorn-latin-wght-normal.woff2?url"
+
+import SiteFooter from "@/components/site-footer.astro"
+import SiteHeader from "@/components/site-header.astro"
+import { research } from "@/data/research"
+import { profiles, site } from "@/site"
+
+import "@/styles/global.css"
+
+interface Props {
+  title?: string
+  description: string
+  article?: { published: Date; updated?: Date | undefined }
+  noindex?: boolean
+  profile?: boolean
+  offerCatalog?: Record<string, unknown>
+  schema?: Record<string, unknown>
+  cover?: { src: string; width: number; height: number }
+}
+
+const {
+  title,
+  description,
+  article,
+  noindex = false,
+  profile = false,
+  offerCatalog,
+  schema,
+  cover,
+} = Astro.props
+const fullTitle = title ? `${title} · ${site.name}` : `${site.fullName} · ${site.name}`
+const canonical = new URL(Astro.url.pathname, Astro.site)
+const image = cover
+  ? { ...cover, src: new URL(cover.src, Astro.site) }
+  : { src: new URL("/og.png", Astro.site), width: 1200, height: 630 }
+
+const person = {
+  "@type": "Person",
+  name: site.fullName,
+  alternateName: [site.name, site.nickname],
+  url: site.url,
+  email: `mailto:${site.email}`,
+  jobTitle: "Frontend engineer and researcher",
+  knowsAbout: site.expertise,
+  alumniOf: research.education.map(({ school }) => ({
+    "@type": "EducationalOrganization",
+    name: school,
+  })),
+  address: { "@type": "PostalAddress", addressLocality: site.city, addressCountry: "IR" },
+  sameAs: profiles.map((profile) => profile.href),
+}
+
+const structuredData = schema
+  ? { "@context": "https://schema.org", ...schema }
+  : article
+    ? {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: title,
+        description,
+        url: canonical,
+        datePublished: article.published.toISOString(),
+        dateModified: (article.updated ?? article.published).toISOString(),
+        author: person,
+      }
+    : profile
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ProfilePage",
+          url: canonical,
+          mainEntity: person,
+        }
+      : { "@context": "https://schema.org", ...person, hasOfferCatalog: offerCatalog }
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={site.fullName} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="preload" href={vollkorn} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/alixsep.woff2" as="font" type="font/woff2" crossorigin />
+    <style is:inline>
+      @font-face {
+        font-family: "Alixsep";
+        font-display: block;
+        src: url("/fonts/alixsep.woff2") format("woff2");
+      }
+    </style>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#edeff3" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141416" />
+
+    <meta property="og:type" content={article ? "article" : "website"} />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image.src} />
+    <meta property="og:image:width" content={String(image.width)} />
+    <meta property="og:image:height" content={String(image.height)} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    <!-- Before first paint: pin stored theme and depth (mirrors lib/theme.ts, lib/depth.ts) and hold tour arrivals until their title surfaces. -->
+    <script is:inline>
+      const root = document.documentElement
+      root.classList.add("js")
+      try {
+        const theme = localStorage.getItem("color-scheme")
+        if (theme === "light" || theme === "dark") root.classList.add(theme)
+        if (localStorage.getItem("depth") === "2d") root.classList.add("flat")
+        if (sessionStorage.getItem("tour")) {
+          root.classList.add("arriving")
+          const still = matchMedia("(prefers-reduced-motion: reduce)").matches
+          if (!still && !root.classList.contains("flat")) {
+            root.classList.add("held")
+            setTimeout(() => root.classList.remove("held"), 3000)
+          }
+        }
+        sessionStorage.removeItem("tour")
+      } catch {}
+    </script>
+  </head>
+  <body class="flex min-h-dvh flex-col">
+    <a
+      href="#content"
+      class="sr-only z-50 rounded-lg bg-foreground px-3 py-2 text-background focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
+    <SiteHeader />
+    <main id="content" class="flex-1">
+      <slot />
+    </main>
+    <SiteFooter />
+    <script>
+      import "@/scripts/reveal"
+    </script>
+  </body>
+</html>

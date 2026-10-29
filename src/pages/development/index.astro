@@ -1,0 +1,32 @@
+---
+import PageHeader from "@/components/page-header.astro"
+import WorkList from "@/components/work-list.astro"
+import Base from "@/layouts/base.astro"
+import { getWork } from "@/lib/content"
+import { formatList } from "@/lib/format"
+import { space } from "@/lib/layout"
+import { site } from "@/site"
+
+const work = await getWork()
+---
+
+<Base
+  title="Development"
+  description={`Frontend and software projects by ${site.name}: ${formatList(work.map(({ data }) => data.title))}.`}
+>
+  <PageHeader
+    title="Development"
+    lede="Software and tools I have designed and built, each made to solve a problem worth solving, the way I’d want it solved."
+  />
+  <div class="shell">
+    <WorkList entries={work} />
+    <p data-reveal class:list={["max-w-[36ch] text-headline leading-snug", space.block]}>
+      Have a project that needs a quality frontend?
+      <br />
+      <a href={site.contact} class="link">
+        Get in touch
+      </a>
+      .
+    </p>
+  </div>
+</Base>

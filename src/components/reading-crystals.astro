@@ -1,0 +1,46 @@
+---
+import Crystals from "@/components/crystals.astro"
+
+interface Props {
+  class?: string
+}
+
+const { class: className } = Astro.props
+---
+
+<div data-reading-crystals class:list={["flex justify-center", className]}>
+  <Crystals count={5} class="w-full max-w-[16rem]" />
+</div>
+
+<script>
+  import { gsap } from "gsap"
+
+  import { mountCrystals } from "@/glass/crystals"
+  import { holdGlass } from "@/glass/pool"
+
+  for (const pile of document.querySelectorAll<HTMLElement>(
+    "[data-reading-crystals] [data-crystals]",
+  )) {
+    const most = Number(pile.dataset.crystals)
+
+    const risen = () => {
+      const { top, height } = pile.getBoundingClientRect()
+      const enteredTowardMiddle = (innerHeight - top) / ((innerHeight + height) / 2)
+      return Math.floor(gsap.utils.clamp(0, 1, enteredTowardMiddle) * most)
+    }
+
+    const crystals = holdGlass(pile, {
+      mount: async (signal) => {
+        const mounted = await mountCrystals(pile, signal)
+        mounted?.show(risen())
+        return mounted
+      },
+      restore: () => {
+        const canvas = pile.querySelector("canvas")!
+        canvas.replaceWith(canvas.cloneNode())
+      },
+    })
+
+    addEventListener("scroll", () => crystals.live()?.show(risen()), { passive: true })
+  }
+</script>

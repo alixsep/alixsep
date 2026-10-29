@@ -1,0 +1,93 @@
+---
+import GlassMark from "@/components/glass-mark.astro"
+import PageHeader from "@/components/page-header.astro"
+import Section from "@/components/section.astro"
+import { markRatio } from "@/glass/figure"
+import { CHARACTERS } from "@/glass/font"
+import Base from "@/layouts/base.astro"
+import { space } from "@/lib/layout"
+import { site } from "@/site"
+
+const characters = [...CHARACTERS]
+const maxLength = 12
+const letters = characters.filter((character) => /[A-Z]/.test(character))
+const typicalRatio =
+  letters.map((letter) => markRatio(letter.repeat(maxLength))).reduce((sum, ratio) => sum + ratio) /
+  letters.length
+---
+
+<Base
+  title="Typeface"
+  description={`${site.name}, a typeface cut on the grid of the logo, set in glass.`}
+>
+  <PageHeader
+    eyebrow="Typeface"
+    title={site.name}
+    lede="Drawn on the grid of the logo: one-unit strokes, four units tall, mitred where strokes turn. Every letter is cut from convex pieces, so every letter can be glass."
+  />
+
+  <section aria-label="Try it" class="shell">
+    <label for="specimen" class="eyebrow">
+      Type something
+    </label>
+    <input
+      id="specimen"
+      value="ALIXSEP"
+      maxlength={maxLength}
+      autocomplete="off"
+      spellcheck="false"
+      class="mt-3 block w-full max-w-md rounded-none border-b border-border-strong bg-transparent pb-2 font-mark text-[28px] uppercase outline-none focus-visible:border-foreground"
+    />
+    <div
+      class:list={["@container flex min-h-40 items-center", space.block]}
+      style={{ "--typical-ratio": typicalRatio }}
+    >
+      <GlassMark
+        text="ALIXSEP"
+        live
+        class="w-[min(100%,calc(var(--ratio)*min(7.5rem,100cqw/var(--typical-ratio))))]"
+      />
+    </div>
+  </section>
+
+  <Section title="Characters">
+    <ul class="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] border-t border-l border-border">
+      {characters.map((character) => (
+        <li class="grid aspect-square place-items-center border-r border-b border-border font-mark text-[40px]">
+          {character}
+        </li>
+      ))}
+    </ul>
+  </Section>
+</Base>
+
+<script>
+  import { recut } from "@/glass/figure"
+  import { mountGlass } from "@/glass/mount"
+  import { holdGlass } from "@/glass/pool"
+  import { isFlat } from "@/lib/depth"
+
+  const input = document.querySelector<HTMLInputElement>("#specimen")!
+  const figure = document.querySelector<HTMLElement>("[data-live]")!
+  let wanted = figure.dataset.text!
+
+  // Text typed while the glass is coming up is set as soon as it arrives.
+  const glass = holdGlass(figure, {
+    mount: async (signal) => {
+      const live = await mountGlass(figure, signal, { entrance: false })
+      if (wanted !== figure.dataset.text) void live?.retext(wanted)
+      return live
+    },
+    restore: () => {
+      recut(figure, wanted)
+      figure.dataset.flat = ""
+    },
+  })
+
+  input.addEventListener("input", () => {
+    wanted = input.value.trim() || " "
+    const live = glass.live()
+    if (live) void live.retext(wanted)
+    else if (isFlat() || "flat" in figure.dataset) glass.reset()
+  })
+</script>

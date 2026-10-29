@@ -1,0 +1,123 @@
+---
+import ExternalLink from "@/components/external-link.astro"
+import GlassRecord from "@/components/glass-record.astro"
+import GlassSculpture from "@/components/glass-sculpture.astro"
+import PageHeader from "@/components/page-header.astro"
+import ReleaseCover from "@/components/release-cover.astro"
+import Section from "@/components/section.astro"
+import { pick, releases } from "@/data/music"
+import Base from "@/layouts/base.astro"
+import { formatDate, releaseKind, releaseLength } from "@/lib/format"
+import { card } from "@/lib/surface"
+import { listen, site } from "@/site"
+
+import type { SculptureName } from "@/glass/sculptures"
+
+const scales: Partial<Record<SculptureName, string>> = {
+  spotify: "scale-80",
+  youtube: "scale-85",
+  appleMusic: "scale-90",
+}
+const entry = "relative outline-offset-8 outline-focus-ring has-[a:focus-visible]:outline"
+const stretched = "after:absolute after:inset-0 focus-visible:outline-none"
+const collection = {
+  "@type": "CollectionPage",
+  name: "Music",
+  url: new URL("/music/", Astro.site),
+  mainEntity: {
+    "@type": "ItemList",
+    itemListElement: releases.map(({ slug, title }, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: title,
+      url: new URL(`/music/${slug}/`, Astro.site),
+    })),
+  },
+}
+---
+
+<Base
+  title="Music"
+  description={`Records written, produced, sung, and mixed by ${site.name}.`}
+  schema={collection}
+>
+  <PageHeader title="Music" lede="Latest releases and the full discography." />
+
+  <Section title="Listen">
+    <ul data-reveal-children class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {listen.map(({ href, label, sculpture }) => (
+        <li>
+          <article
+            class:list={[
+              entry,
+              "flex aspect-square flex-col justify-end rounded-card p-5 text-center sm:p-8",
+              card,
+            ]}
+          >
+            <GlassSculpture
+              name={sculpture}
+              class:list={[
+                "top-[4%] left-1/2 w-[62%] -translate-x-1/2 sm:top-[6%] sm:w-[72%]",
+                scales[sculpture],
+              ]}
+            />
+            <ExternalLink href={href} class:list={["text-lead", stretched]}>
+              <span class="relative">{label}</span>
+            </ExternalLink>
+          </article>
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <Section title="Artist’s pick">
+    <article
+      data-record
+      class:list={[
+        entry,
+        "grid grid-cols-[9rem_minmax(0,1fr)] items-center gap-6 sm:grid-cols-[16rem_minmax(0,1fr)] sm:gap-12",
+      ]}
+    >
+      <GlassRecord
+        release={pick}
+        widths={[256, 384, 512]}
+        sizes="(min-width: 640px) 256px, 144px"
+        loading="eager"
+      />
+      <div data-reveal class="grid gap-2">
+        <p class="eyebrow">{releaseKind(pick)}</p>
+        <h3 class="text-heading leading-tight">
+          <a href={`/music/${pick.slug}/`} class={stretched}>
+            {pick.title}
+          </a>
+        </h3>
+        <p class="text-note text-muted-foreground lining-nums">
+          {`${formatDate(new Date(pick.date))} · ${releaseLength(pick)}`}
+        </p>
+      </div>
+    </article>
+  </Section>
+
+  <Section title="Discography">
+    <ul data-reveal-children class="grid grid-cols-2 gap-x-6 gap-y-12 sm:gap-x-8 lg:grid-cols-5">
+      {releases.map((release) => (
+        <li class={entry}>
+          <ReleaseCover
+            release={release}
+            widths={[240, 360, 480]}
+            sizes="(min-width: 1200px) 208px, (min-width: 1024px) 17vw, 44vw"
+          />
+          <h3 class="mt-4 text-lead leading-tight">
+            <a href={`/music/${release.slug}/`} class={stretched}>
+              {release.title}
+            </a>
+          </h3>
+          <p class="mt-1 grid text-note text-muted-foreground lining-nums">
+            <span>{releaseKind(release)}</span>
+            <span>{releaseLength(release)}</span>
+          </p>
+        </li>
+      ))}
+    </ul>
+  </Section>
+</Base>

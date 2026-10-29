@@ -1,0 +1,19 @@
+---
+import { card } from "@/lib/surface"
+
+import type { HTMLAttributes } from "astro/types"
+
+interface Props extends HTMLAttributes<"figure"> {
+  caption: string
+}
+
+const { caption, class: className, ...attributes } = Astro.props
+---
+
+<figure
+  class:list={["@container flex h-full flex-col rounded-card p-6 sm:p-8", card, className]}
+  {...attributes}
+>
+  <slot />
+  <figcaption class="mt-auto pt-6 text-note text-muted-foreground">{caption}</figcaption>
+</figure>

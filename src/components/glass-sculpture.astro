@@ -1,0 +1,48 @@
+---
+import { etching } from "@/glass/sculptures"
+
+import type { SculptureName } from "@/glass/sculptures"
+
+interface Props {
+  name: SculptureName
+  class?: string | undefined
+}
+
+const { name, class: className } = Astro.props
+const { viewBox, path } = etching(name)
+---
+
+<figure
+  data-sculpture={name}
+  class:list={["pointer-events-none absolute aspect-square", className]}
+>
+  <svg
+    {viewBox}
+    aria-hidden="true"
+    class="absolute inset-0 size-full fill-none stroke-current stroke-1 transition-[opacity,visibility] delay-300 duration-500 [stroke-linejoin:round] in-data-risen:invisible in-data-risen:opacity-0 in-data-risen:delay-0 [&_path]:[vector-effect:non-scaling-stroke]"
+  >
+    <path d={path} />
+  </svg>
+  <canvas
+    aria-hidden="true"
+    class="pointer-events-none absolute inset-0 size-full opacity-0"
+  ></canvas>
+</figure>
+
+<script>
+  import { holdGlass } from "@/glass/pool"
+  import { mountSculpture } from "@/glass/sculpt"
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-sculpture]")) {
+    holdGlass(figure, {
+      mount: (signal) => mountSculpture(figure, signal),
+      restore: () => {
+        figure.removeAttribute("data-risen")
+        const canvas = figure.querySelector("canvas")!
+        const fresh = canvas.cloneNode() as HTMLCanvasElement
+        fresh.removeAttribute("style")
+        canvas.replaceWith(fresh)
+      },
+    })
+  }
+</script>

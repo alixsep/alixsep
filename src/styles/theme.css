@@ -1,0 +1,41 @@
+@theme inline {
+  --font-serif: "Vollkorn", Georgia, serif;
+  --font-mark: "Alixsep", var(--font-serif);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-tint: var(--tint);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-6: var(--surface-6);
+  --color-surface-7: var(--surface-7);
+  --color-surface-8: var(--surface-8);
+
+  --shadow-surface-1: var(--shadow-1);
+  --shadow-surface-2: var(--shadow-2);
+  --shadow-surface-3: var(--shadow-3);
+  --shadow-surface-4: var(--shadow-4);
+  --shadow-surface-5: var(--shadow-5);
+  --shadow-surface-6: var(--shadow-6);
+  --shadow-surface-7: var(--shadow-7);
+  --shadow-surface-8: var(--shadow-8);
+
+  --radius-card: 28px;
+
+  --text-meta: 13px;
+  --text-note: 15px;
+  --text-copy: 17px;
+  --text-lead: 19px;
+  --text-item: clamp(20px, 1.7vw, 24px);
+  --text-headline: clamp(22px, 2vw, 28px);
+  --text-heading: clamp(24px, 2.4vw, 32px);
+  --text-hero: clamp(40px, 6vw, 80px);
+}

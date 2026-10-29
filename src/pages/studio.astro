@@ -1,0 +1,95 @@
+---
+import GlassMark from "@/components/glass-mark.astro"
+import PageHeader from "@/components/page-header.astro"
+import Section from "@/components/section.astro"
+import { PriceCard } from "@/components/ui/price-card"
+import { studio } from "@/data/music"
+import { markRatio } from "@/glass/figure"
+import Base from "@/layouts/base.astro"
+import { formatList } from "@/lib/format"
+import { space } from "@/lib/layout"
+import { site } from "@/site"
+
+const inquiry = `mailto:${site.studioEmail}?subject=${encodeURIComponent("Studio inquiry")}`
+const offerCatalog = {
+  "@type": "OfferCatalog",
+  name: "Studio",
+  itemListElement: studio.map(({ title, services }) => ({
+    "@type": "OfferCatalog",
+    name: title,
+    itemListElement: services.map(({ title, price, unit, description }) => ({
+      "@type": "Offer",
+      price,
+      priceCurrency: "USD",
+      description: unit,
+      itemOffered: { "@type": "Service", name: title, description },
+    })),
+  })),
+}
+const amountSize = (price: number) => `min(5rem, 100cqw / (${markRatio(String(price))} + 0.65))`
+const span = (services: { price: number }[], index: number) => {
+  const twoDigitRow =
+    services.length >= 3 && services.slice(0, 3).every(({ price }) => price < 100) ? 3 : 0
+  const last = index === services.length - 1
+  const pairedCount = services.length - twoDigitRow
+  return [
+    last && services.length % 2 === 1 && "md:col-span-2",
+    index < twoDigitRow
+      ? "xl:col-span-4"
+      : last && pairedCount % 2 === 1
+        ? "xl:col-span-12"
+        : "xl:col-span-6",
+  ]
+}
+const steps = [
+  "Write to me with what you have in mind.",
+  "I reply with a quote, a timeline, and how to pay.",
+  "Half is paid to begin, and the rest on delivery.",
+  "We work on it together until it is right.",
+]
+---
+
+<Base
+  title="Studio"
+  description={`Music services by ${site.name}: ${formatList(studio.map(({ title }) => title.toLowerCase()))}.`}
+  offerCatalog={offerCatalog}
+>
+  <PageHeader title="Studio" lede="A place to make, finish, and understand music." />
+
+  {studio.map((group) => (
+    <Section title={group.title}>
+      <ul data-reveal-children class="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+        {group.services.map(({ title, price, unit, description, includes }, index) => (
+          <li class:list={["min-w-0", span(group.services, index)]}>
+            <PriceCard
+              currency="$"
+              className="h-full"
+              amountSize={amountSize(price)}
+              title={title}
+              unit={unit}
+              description={description}
+              includes={includes}
+            >
+              <span class="sr-only">{`$${price}`}</span>
+              <GlassMark text={String(price)} class="mt-[0.15em] h-[1em]" />
+            </PriceCard>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  ))}
+
+  <Section title="How it works">
+    <ol data-reveal-children class="grid max-w-[60ch] gap-4 text-lead">
+      {steps.map((step, index) => (
+        <li>
+          <span class="mr-3 text-muted-foreground lining-nums">{index + 1}.</span>
+          {step}
+        </li>
+      ))}
+    </ol>
+    <a href={inquiry} data-reveal class:list={["link inline-block text-heading", space.block]}>
+      {site.studioEmail}
+    </a>
+  </Section>
+</Base>

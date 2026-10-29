@@ -1,0 +1,94 @@
+---
+import GlassSculpture from "@/components/glass-sculpture.astro"
+import PageHeader from "@/components/page-header.astro"
+import Section from "@/components/section.astro"
+import { research } from "@/data/research"
+import Base from "@/layouts/base.astro"
+import { formatList } from "@/lib/format"
+import { card } from "@/lib/surface"
+import { site } from "@/site"
+
+import StateMachine from "./_components/state-machine.astro"
+import StepParser from "./_components/step-parser.astro"
+import TraceGraph from "./_components/trace-graph.astro"
+
+import type { SculptureName } from "@/glass/sculptures"
+
+const figures = { methodology: TraceGraph, specifications: StepParser, mathematics: StateMachine }
+const insets: Partial<Record<SculptureName, string>> = { sampad: "inset-[12%]" }
+const fields = formatList(research.interests.map(({ title }) => title.toLowerCase()))
+---
+
+<Base title="Research" description={`${site.name}’s research in ${fields}.`}>
+  <PageHeader title="Research" lede={research.lede} />
+
+  <Section title="Interests">
+    <div class="grid gap-x-6 gap-y-16 md:grid-cols-2 lg:grid-cols-3">
+      {research.interests.map(({ id, title, text }) => {
+        const Figure = figures[id]
+        return (
+          <article class="row-span-2 grid grid-rows-subgrid gap-6">
+            <div data-reveal>
+              <h3 class="text-item leading-tight">{title}</h3>
+              <p class="mt-3 text-copy text-muted-foreground">{text}</p>
+            </div>
+            <div data-reveal>
+              <Figure />
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  </Section>
+
+  {research.current && (
+    <Section title="Current work">
+      <p data-reveal class="max-w-[62ch] text-copy">
+        {research.current}
+      </p>
+    </Section>
+  )}
+
+  <Section title="Education">
+    <ol class="grid gap-16">
+      {research.education.map(({ years, degree, school, details, sculpture }) => (
+        <li class="group">
+          <article class="grid grid-cols-[9px_minmax(0,1fr)] gap-x-6 gap-y-8 [grid-template-areas:'rail_text'_'rail_media'] md:grid-cols-[20rem_9px_minmax(0,1fr)] md:gap-x-10 md:[grid-template-areas:'media_rail_text'] lg:grid-cols-[24rem_9px_minmax(0,1fr)]">
+            <span
+              aria-hidden="true"
+              class="relative [grid-area:rail] before:absolute before:top-2.5 before:-bottom-[calc(4rem+0.625rem)] before:left-1 before:w-px before:bg-border group-last:before:hidden after:absolute after:top-1.5 after:left-0 after:size-[9px] after:rounded-full after:bg-foreground"
+            ></span>
+            <div data-reveal class="[grid-area:text]">
+              <p class="eyebrow lining-nums">{years}</p>
+              <h3 class="mt-3 text-item leading-tight">{degree}</h3>
+              <p class="mt-1 text-copy text-muted-foreground">{school}</p>
+              <ul class="mt-4 grid max-w-[52ch] gap-2 text-copy">
+                {details.map((detail) => (
+                  <li>{detail}</li>
+                ))}
+              </ul>
+            </div>
+            {sculpture && (
+              <div
+                data-reveal
+                class:list={["relative aspect-square rounded-card [grid-area:media]", card]}
+              >
+                <GlassSculpture name={sculpture} class={insets[sculpture] ?? "inset-0"} />
+              </div>
+            )}
+          </article>
+        </li>
+      ))}
+    </ol>
+  </Section>
+
+  <Section title="Contact">
+    <p data-reveal class="max-w-[62ch] text-copy">
+      For academic inquiries, write to{" "}
+      <a href={`mailto:${site.email}`} class="link">
+        {site.email}
+      </a>
+      .
+    </p>
+  </Section>
+</Base>

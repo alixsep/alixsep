@@ -1,0 +1,37 @@
+:root:not(.light, .dark) [data-theme-state]:not([data-theme-state="system"]),
+:root.light [data-theme-state]:not([data-theme-state="light"]),
+:root.dark [data-theme-state]:not([data-theme-state="dark"]),
+:root.flat [data-depth-state="3d"],
+:root:not(.flat) [data-depth-state="2d"],
+:root.flat [data-crystal-counter],
+:root:not(.js) [data-crystal-counter] {
+  display: none;
+}
+
+html.arriving :is(#content > :not(:first-child), .arrive-scope > :not(.page-title)) {
+  animation: var(--animate-arrive);
+}
+
+[data-skeleton] img {
+  transition: opacity 500ms ease;
+}
+
+html.js [data-skeleton]:not([data-loaded]) {
+  & img {
+    opacity: 0;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--foreground);
+    animation: var(--animate-skeleton);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js [data-skeleton]::before {
+    animation: none;
+  }
+}

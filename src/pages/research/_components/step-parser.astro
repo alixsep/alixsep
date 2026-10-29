@@ -1,0 +1,101 @@
+---
+import Panel from "./panel.astro"
+
+const EXAMPLE = 'When the customer adds 3 apples to the "summer" basket'
+---
+
+<Panel data-step-parser caption="Edit the step to see how Cucumber reads it.">
+  <label for="step" class="eyebrow">
+    Step
+  </label>
+  <textarea
+    id="step"
+    spellcheck="false"
+    autocomplete="off"
+    class="mt-2 field-sizing-content w-full resize-none border-b border-border bg-transparent pb-2 text-copy outline-none focus-visible:border-foreground"
+  >{EXAMPLE}</textarea>
+  <output for="step" aria-live="polite" class="mt-6 block min-h-32 text-note">
+    <ul class="grid gap-4 border-l border-border pl-4"></ul>
+  </output>
+  <template>
+    <li class="grid gap-1">
+      <span class="eyebrow"></span>
+      <span class="break-words"></span>
+    </li>
+  </template>
+</Panel>
+
+<script>
+  import { gsap } from "gsap"
+
+  import { demo } from "../_lib/demo"
+  import { parseStep } from "../_lib/step"
+
+  const EXAMPLES = [
+    "Given 2 apples in the basket",
+    'Then the total for "summer" is 4.50',
+    'When the customer adds 3 apples to the "summer" basket',
+  ]
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-step-parser]")) {
+    const input = figure.querySelector("textarea")!
+    const tree = figure.querySelector("ul")!
+    const row = figure.querySelector("template")!.content.firstElementChild!
+
+    const render = () => {
+      const step = parseStep(input.value)
+      const rows: [string, string][] = step
+        ? [
+            ["Keyword", step.keyword],
+            ["Expression", step.expression],
+            ...step.arguments.map(({ kind, value }): [string, string] => [kind, value]),
+          ]
+        : [["Error", "A step begins with Given, When, Then, And, or But."]]
+      const before = tree.children.length
+      tree.replaceChildren(
+        ...rows.map(([term, value]) => {
+          const item = row.cloneNode(true) as HTMLElement
+          const [label, text] = item.querySelectorAll("span")
+          label!.textContent = term
+          text!.textContent = value
+          return item
+        }),
+      )
+      if (still) return
+      gsap.from([...tree.children].slice(before), {
+        opacity: 0,
+        x: -8,
+        duration: 0.4,
+        ease: "power2.out",
+        stagger: 0.04,
+      })
+    }
+
+    input.addEventListener("input", render)
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") event.preventDefault()
+    })
+    render()
+
+    demo(
+      figure,
+      (function* () {
+        for (;;) {
+          for (const example of EXAMPLES) {
+            while (input.value) {
+              input.value = input.value.slice(0, -1)
+              yield 14
+            }
+            for (const character of example) {
+              input.value += character
+              if (parseStep(input.value)) render()
+              yield 50
+            }
+            yield 2600
+          }
+        }
+      })(),
+    )
+  }
+</script>

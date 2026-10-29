@@ -1,0 +1,31 @@
+---
+import MoreLink from "@/components/bento/more-link.astro"
+
+import type { ComponentProps } from "astro/types"
+
+interface Props {
+  entries: { href: string; title: string; meta: string | number }[]
+  limit?: number
+  more: Omit<ComponentProps<typeof MoreLink>, "count">
+}
+
+const { entries, limit = 3, more } = Astro.props
+const shown = entries.slice(0, limit)
+---
+
+{shown.length > 0 && (
+  <ul>
+    {shown.map(({ href, title, meta }) => (
+      <li class="border-t border-border first:border-t-0">
+        <a
+          href={href}
+          class="flex items-baseline justify-between gap-6 py-3 text-item transition-colors duration-300 hover:text-muted-foreground"
+        >
+          {title}
+          <span class="text-meta text-muted-foreground lining-nums tabular-nums">{meta}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+)}
+<MoreLink {...more} count={entries.length - shown.length} />

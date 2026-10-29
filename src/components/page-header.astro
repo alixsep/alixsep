@@ -1,0 +1,29 @@
+---
+import BackLink from "@/components/back-link.astro"
+import GlassMark from "@/components/glass-mark.astro"
+import { headerFrame, titleMarks, titleSize } from "@/lib/layout"
+
+import type { ComponentProps } from "astro/types"
+
+interface Props {
+  eyebrow?: string
+  back?: ComponentProps<typeof BackLink>
+  title: string
+  lede?: string
+}
+
+const { eyebrow, back, title, lede } = Astro.props
+---
+
+<header class:list={["arrive-scope", headerFrame]}>
+  {back && <BackLink {...back} />}
+  {eyebrow && <p class="eyebrow mb-6">{eyebrow}</p>}
+  <h1 class="page-title">
+    <span class="sr-only">{title}</span>
+    {titleMarks(title).map((mark) => (
+      <GlassMark text={mark.text} class:list={[titleSize, mark.class]} />
+    ))}
+  </h1>
+  {lede && <p class="mt-8 max-w-[36ch] text-headline leading-snug text-muted-foreground">{lede}</p>}
+  <slot />
+</header>

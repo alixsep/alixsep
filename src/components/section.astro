@@ -1,0 +1,19 @@
+---
+import { space } from "@/lib/layout"
+
+interface Props {
+  title: string
+}
+
+const { title } = Astro.props
+const id = title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")
+---
+
+<section aria-labelledby={id} class:list={["shell", space.section]}>
+  <h2 id={id} data-reveal class="text-headline">
+    {title}
+  </h2>
+  <div class={space.related}>
+    <slot />
+  </div>
+</section>

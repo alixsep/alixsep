@@ -1,0 +1,159 @@
+---
+import Chevron from "@/components/chevron.astro"
+import ReleaseCover from "@/components/release-cover.astro"
+import RollText from "@/components/roll-text.astro"
+import { RECORD_ART as art, shelfFrame as view } from "@/glass/geometry"
+import { releaseKind } from "@/lib/format"
+
+import type { Release } from "@/data/music"
+
+interface Props {
+  releases: Release[]
+  class?: string
+}
+
+const { releases, class: className } = Astro.props
+const arrow =
+  "absolute top-1/2 z-10 grid size-10 -translate-y-1/2 place-items-center transition-opacity duration-300 aria-disabled:pointer-events-none aria-disabled:opacity-30"
+---
+
+<section
+  data-shelf
+  aria-roledescription="carousel"
+  aria-label="Selected releases"
+  class:list={["pointer-events-none relative z-10", className]}
+>
+  <div
+    data-stage
+    class="pointer-events-auto relative"
+    style={{ aspectRatio: `${view.width} / ${view.height}` }}
+  >
+    <canvas aria-hidden="true" class="absolute inset-0 size-full opacity-0"></canvas>
+    <div
+      data-covers
+      class="absolute top-1/2 left-1/2 aspect-square -translate-1/2 cursor-pointer"
+      style={{ height: `${(art / view.height) * 100}%` }}
+    >
+      {releases.map((release, index) => (
+        <a
+          data-release
+          href={`/music/${release.slug}/`}
+          data-current={index === 0 || undefined}
+          tabindex="-1"
+          aria-hidden="true"
+          class="absolute inset-0 invisible data-current:visible"
+        >
+          <ReleaseCover
+            release={release}
+            widths={[256, 512]}
+            sizes="256px"
+            loading="eager"
+            class="rounded-[4px]"
+          />
+        </a>
+      ))}
+    </div>
+    <button type="button" data-step="-1" aria-label="Newer release" class:list={[arrow, "left-2"]}>
+      <Chevron direction="back" />
+    </button>
+    <button type="button" data-step="1" aria-label="Older release" class:list={[arrow, "right-2"]}>
+      <Chevron direction="forward" />
+    </button>
+  </div>
+
+  <p aria-live="polite" class="pointer-events-auto mt-6 grid px-6 sm:px-8">
+    {releases.map((release, index) => (
+      <a
+        data-caption
+        href={`/music/${release.slug}/`}
+        data-current={index === 0 || undefined}
+        class="pointer-events-none invisible col-start-1 row-start-1 flex items-baseline-last justify-between self-end gap-6 text-item leading-tight transition-[visibility] duration-550 data-current:transition-colors data-current:duration-300 hover:text-muted-foreground not-data-current:[--stagger:0ms] data-current:pointer-events-auto data-current:visible [&:has(~[data-current])]:[--roll:-100%] [[data-current]~&]:[--roll:100%]"
+      >
+        <RollText text={release.title} onHover={false} />
+        <RollText
+          text={releaseKind(release)}
+          onHover={false}
+          class="shrink-0 text-meta text-muted-foreground lining-nums tabular-nums"
+        />
+      </a>
+    ))}
+  </p>
+</section>
+
+<script>
+  import { SHELF_STEP, shelfFrame } from "@/glass/geometry"
+  import { holdGlass } from "@/glass/pool"
+  import { mountShelf } from "@/glass/shelf"
+  import { rollBetween } from "@/lib/roll"
+  import { onSwipe } from "@/lib/swipe"
+
+  /** How far past either end the shelf gives, as a share of the finger's overshoot. */
+  const STRETCH = 0.3
+  /** Milliseconds of a flick's speed carried into where the shelf lands. */
+  const FLING = 160
+
+  for (const shelf of document.querySelectorAll<HTMLElement>("[data-shelf]")) {
+    const releases = [...shelf.querySelectorAll<HTMLAnchorElement>("[data-release]")]
+    const covers = releases.map((release) => release.querySelector("img")!)
+    const captions = shelf.querySelectorAll("[data-caption]")
+    const [newer, older] = shelf.querySelectorAll<HTMLButtonElement>("[data-step]")
+    let current = 0
+
+    const show = (index: number) => {
+      const next = Math.min(Math.max(index, 0), releases.length - 1)
+      if (next !== current) rollBetween(captions[current]!, captions[next]!)
+      current = next
+      for (const items of [releases, captions]) {
+        items.forEach((item, i) => item.toggleAttribute("data-current", i === current))
+      }
+      newer!.ariaDisabled = String(current === 0)
+      older!.ariaDisabled = String(current === releases.length - 1)
+      glass.live()?.show(current)
+    }
+
+    const open = (index: number) => {
+      if (index !== current) return show(index)
+      const live = glass.live()
+      if (!live || live.faces(current)) location.assign(releases[current]!.href)
+    }
+
+    const glass = holdGlass(shelf, {
+      mount: (signal) =>
+        mountShelf(shelf.querySelector("canvas")!, covers, signal, { current, onPick: open }),
+      restore: () => {
+        const canvas = shelf.querySelector("canvas")!
+        const fresh = canvas.cloneNode() as HTMLCanvasElement
+        fresh.removeAttribute("style")
+        fresh.toggleAttribute("data-fallback", true)
+        canvas.replaceWith(fresh)
+      },
+    })
+
+    const stage = shelf.querySelector<HTMLElement>("[data-stage]")!
+    const perRelease = () => (stage.clientWidth * SHELF_STEP) / shelfFrame.width
+    const held = (position: number) => Math.min(Math.max(position, 0), releases.length - 1)
+    let position = current
+
+    onSwipe(stage, {
+      move: (travel) => {
+        const reached = current - travel / perRelease()
+        position = held(reached) + (reached - held(reached)) * STRETCH
+        glass.live()?.slide(position)
+      },
+      release: (_, speed) => {
+        const nearest = Math.round(position)
+        const flung = Math.round(position - (speed * FLING) / perRelease())
+        show(Math.min(Math.max(flung, nearest - 1), nearest + 1))
+      },
+    })
+
+    newer!.addEventListener("click", () => void show(current - 1))
+    older!.addEventListener("click", () => void show(current + 1))
+    shelf.querySelector("[data-covers]")!.addEventListener("click", (event) => {
+      event.preventDefault()
+      open(current)
+    })
+
+    show(0)
+  }
+</script>

@@ -1,0 +1,32 @@
+---
+import { crystalFrame } from "@/glass/geometry"
+
+interface Props {
+  count: number
+  class?: string
+}
+
+const { count, class: className } = Astro.props
+const { box, view } = crystalFrame(count)
+const overhang = {
+  x: ((view.width - box.width) / 2 / box.width) * 100,
+  y: ((view.height - box.height) / 2 / box.height) * 100,
+}
+---
+
+<div
+  data-crystals={count}
+  class:list={["pointer-events-none relative", className]}
+  style={{ aspectRatio: `${box.width} / ${box.height}` }}
+>
+  <canvas
+    aria-hidden="true"
+    class="absolute"
+    style={{
+      left: `${-overhang.x}%`,
+      top: `${-overhang.y}%`,
+      width: `${100 + overhang.x * 2}%`,
+      height: `${100 + overhang.y * 2}%`,
+    }}
+  ></canvas>
+</div>

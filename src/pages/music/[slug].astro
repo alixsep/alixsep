@@ -1,0 +1,162 @@
+---
+import { getImage } from "astro:assets"
+
+import ExternalLink from "@/components/external-link.astro"
+import LyricsLink from "@/components/lyrics-link.astro"
+import PageHeader from "@/components/page-header.astro"
+import ReleaseCover from "@/components/release-cover.astro"
+import { releases } from "@/data/music"
+import Base from "@/layouts/base.astro"
+import {
+  formatDate,
+  formatDuration,
+  formatList,
+  isoDuration,
+  releaseKind,
+  releaseSummary,
+} from "@/lib/format"
+import { space } from "@/lib/layout"
+import { site } from "@/site"
+
+import type { Release, Track } from "@/data/music"
+import type { GetStaticPaths } from "astro"
+
+export const getStaticPaths = (() =>
+  releases.map((release, index) => ({
+    params: { slug: release.slug },
+    props: { release, newer: releases[index - 1], older: releases[index + 1] },
+  }))) satisfies GetStaticPaths
+
+interface Props {
+  release: Release
+  newer?: Release | undefined
+  older?: Release | undefined
+}
+
+const { release, newer, older } = Astro.props
+const { title, artists, type, date, cover, links, tracks } = release
+const album = tracks.length > 1
+const platforms = formatList(links.map((link) => link.label))
+const description = `${title}, ${releaseSummary(release)}. Listen on ${platforms}.`
+const og = await getImage({ src: cover, width: 1200, height: 1200, format: "jpg" })
+const featuring = artists.filter((artist) => artist !== site.name)
+const byArtist = artists.map((name) =>
+  name === site.name ? { "@type": "Person", name, url: site.url } : { "@type": "MusicGroup", name },
+)
+const recording = ({ title, seconds }: Track, index: number) => ({
+  "@type": "MusicRecording",
+  name: title,
+  position: index + 1,
+  duration: isoDuration(seconds),
+  byArtist,
+})
+const shared = {
+  name: title,
+  url: new URL(Astro.url.pathname, Astro.site),
+  image: new URL(og.src, Astro.site),
+  datePublished: date,
+  byArtist,
+  sameAs: links.map((link) => link.href),
+}
+const structured = album
+  ? {
+      "@type": "MusicAlbum",
+      ...shared,
+      albumReleaseType: `${type}Release`,
+      numTracks: tracks.length,
+      track: tracks.map(recording),
+    }
+  : { "@type": "MusicRecording", ...shared, duration: isoDuration(tracks[0]!.seconds) }
+const neighbors = [
+  { label: "Newer", release: newer, class: "mr-auto" },
+  { label: "Older", release: older, class: "ml-auto text-right" },
+]
+---
+
+<Base
+  title={title}
+  description={description}
+  schema={structured}
+  cover={{ src: og.src, width: 1200, height: 1200 }}
+>
+  <PageHeader
+    back={{ href: "/music/", label: "Music" }}
+    eyebrow={releaseKind(release)}
+    title={title}
+  />
+  <div class="shell">
+    <div class="grid items-start gap-10 md:grid-cols-[minmax(0,4fr)_minmax(0,5fr)] lg:gap-16">
+      <div data-reveal class="md:sticky md:top-24">
+        <ReleaseCover
+          release={release}
+          widths={[360, 540, 720, 1080, 1440]}
+          sizes="(min-width: 1200px) 500px, (min-width: 768px) 41vw, 92vw"
+          loading="eager"
+        />
+      </div>
+      <div data-reveal-children class="grid gap-10">
+        <dl class="grid grid-cols-2 gap-x-8 gap-y-6 text-copy">
+          <div>
+            <dt class="eyebrow">Released</dt>
+            <dd class="lining-nums">{formatDate(new Date(date))}</dd>
+          </div>
+          <div>
+            <dt class="eyebrow">Type</dt>
+            <dd>{type}</dd>
+          </div>
+          {featuring.length > 0 && (
+            <div class="col-span-2">
+              <dt class="eyebrow">With</dt>
+              <dd>{featuring.join(", ")}</dd>
+            </div>
+          )}
+          <div>
+            <dt class="eyebrow">Listen</dt>
+            {links.map(({ label, href }) => (
+              <dd>
+                <ExternalLink href={href} class="link">
+                  {label}
+                </ExternalLink>
+              </dd>
+            ))}
+          </div>
+          {album && (
+            <div>
+              <dt class="eyebrow">Tracks</dt>
+              <dd class="lining-nums">{tracks.length}</dd>
+            </div>
+          )}
+        </dl>
+        <ol aria-label="Track list">
+          {tracks.map(({ title, seconds, lyrics }, index) => (
+            <li class="grid grid-cols-[1.5rem_minmax(0,1fr)_1rem_auto] items-baseline gap-x-3 border-t border-border py-3 text-lead first:border-t-0 sm:grid-cols-[2rem_minmax(0,1fr)_1rem_auto]">
+              <span class="text-note text-muted-foreground lining-nums tabular-nums">
+                {index + 1}
+              </span>
+              <span>{title}</span>
+              <span class="text-note">{lyrics && <LyricsLink href={lyrics} track={title} />}</span>
+              <span class="text-note text-muted-foreground lining-nums tabular-nums">
+                {formatDuration(seconds)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+    <nav
+      aria-label="More releases"
+      data-reveal
+      class:list={["flex justify-between gap-6", space.block]}
+    >
+      {neighbors.map(
+        ({ label, release: other, class: side }) =>
+          other && (
+            <a href={`/music/${other.slug}/`} class:list={["grid gap-1 text-lead", side]}>
+              <span class="eyebrow">{label}</span>
+              <span class="link-quiet">{other.title}</span>
+            </a>
+          ),
+      )}
+    </nav>
+  </div>
+</Base>
