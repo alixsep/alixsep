@@ -3,6 +3,7 @@ import { gsap } from "gsap"
 import { ease } from "@/lib/motion"
 
 import { cutSlab, halfDepth, rotation, waist } from "./geometry"
+import { TILT_LIMIT, watchSettledTilt } from "./input"
 import { createRenderer, nextFrame } from "./renderer"
 import { prefersStill, scrollLight, stage } from "./stage"
 
@@ -118,6 +119,7 @@ export async function mountGlassButton(
   )
   button.addEventListener("pointerdown", () => void press(PRESS_DEPTH), options)
   button.addEventListener("pointerup", () => void press(0), options)
+  watchSettledTilt(signal, (pitch, yaw) => lean(yaw / TILT_LIMIT, pitch / TILT_LIMIT))
 
   const retreat = () =>
     new Promise<void>((resolve) => {

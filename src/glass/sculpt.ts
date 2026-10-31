@@ -3,6 +3,7 @@ import { gsap } from "gsap"
 import { ease } from "@/lib/motion"
 
 import { centroid, multiply, rotation, subtract, transform } from "./geometry"
+import { watchSettledTilt } from "./input"
 import { createRenderer, nextFrame } from "./renderer"
 import { sculpture, SCULPTURE_FIELD_OF_VIEW, sculptureView } from "./sculptures"
 import { onFirstSight, prefersStill, scrollLight, stage } from "./stage"
@@ -100,6 +101,11 @@ export async function mountSculpture(figure: HTMLElement, signal: AbortSignal) {
     },
     options,
   )
+  watchSettledTilt(signal, (tiltPitch, tiltYaw) => {
+    if (!risen) return
+    pitch(tiltPitch)
+    yaw(tiltYaw)
+  })
 
   await nextFrame()
   await nextFrame()

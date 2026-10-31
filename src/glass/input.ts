@@ -2,7 +2,8 @@ import { gsap } from "gsap"
 
 /** Radians of turn per degree the phone tilts. */
 const TILT_GAIN = 0.012
-const TILT_LIMIT = 0.35
+export const TILT_LIMIT = 0.35
+const MIN_TILT_CHANGE = 0.004
 /** How quickly a phone's resting posture becomes the new neutral. */
 const RECENTER_SECONDS = 3
 
@@ -54,4 +55,17 @@ export function watchTilt(signal: AbortSignal, onTilt: (pitch: number, yaw: numb
     () => void permission.requestPermission?.().then((state) => state === "granted" && listen()),
     { once: true, signal },
   )
+}
+
+/** `watchTilt` that stays quiet while the phone only trembles, for glass costly to redraw. */
+export function watchSettledTilt(
+  signal: AbortSignal,
+  onTilt: (pitch: number, yaw: number) => void,
+) {
+  let last = { pitch: 0, yaw: 0 }
+  watchTilt(signal, (pitch, yaw) => {
+    if (Math.abs(pitch - last.pitch) + Math.abs(yaw - last.yaw) < MIN_TILT_CHANGE) return
+    last = { pitch, yaw }
+    onTilt(pitch, yaw)
+  })
 }
