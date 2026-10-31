@@ -12,6 +12,7 @@ const span = `${(1 + 2 * RECORD_MARGIN) * 100}%`
 
 <div data-glass-record class="relative">
   <canvas
+    data-fallback
     aria-hidden="true"
     class="pointer-events-none absolute opacity-0"
     style={{ top: overhang, left: overhang, width: span, height: span }}

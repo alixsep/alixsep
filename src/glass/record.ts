@@ -37,6 +37,8 @@ const RISE = { duration: 1.6, ease: ease.arrive }
 const SWEEP = 0.3
 const HOVER = { lift: 0.08, tilt: 0.2 }
 const FOLLOW = { duration: 0.6, ease: ease.arrive }
+/** Glass arriving over a cover already in view fades in over it instead of rising. */
+const SWAP = { duration: 0.4, ease: ease.settle }
 
 /** Aborting `signal` stops the record and releases its GPU context. */
 export async function mountRecord(frame: HTMLElement, signal: AbortSignal) {
@@ -90,9 +92,19 @@ export async function mountRecord(frame: HTMLElement, signal: AbortSignal) {
   await nextFrame()
   await nextFrame()
   if (signal.aborted) return
+  const { top, bottom } = frame.getBoundingClientRect()
+  if (still || (top < innerHeight && bottom > 0)) {
+    gsap.set(rise, { depth: 0, pitch: 0, onComplete: invalidate })
+    gsap.to(canvas, {
+      ...SWAP,
+      duration: still ? 0 : SWAP.duration,
+      opacity: 1,
+      onComplete: () => canvas.removeAttribute("data-fallback"),
+    })
+    return
+  }
   canvas.removeAttribute("data-fallback")
   gsap.set(canvas, { opacity: 1 })
-  if (still) return
   onRelease(
     onFirstSight(canvas, { threshold: 0.3 }, (fromAbove) => {
       if (fromAbove) return void gsap.set(rise, { depth: 0, pitch: 0, onComplete: invalidate })
