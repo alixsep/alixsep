@@ -86,7 +86,10 @@ export function fragmentShader(
 precision highp float;
 precision highp int;
 ${transforms(count)}
-uniform highp sampler2D uPlanes;
+// Mobile GPUs read uniforms far faster than textures, and every bounce reads every facet.
+layout(std140) uniform Planes {
+  vec4 uPlanes[${firsts.at(-1)! + count}];
+};
 uniform sampler2D uEnvironment;
 uniform float uYaw;
 // Pre-compensated so the tone curve returns the page colour unchanged.
@@ -147,7 +150,7 @@ vec2 span(int k, vec3 origin, vec3 direction, out vec3 inward, out vec3 outward)
   float near = -1e9, far = 1e9;
   inward = outward = vec3(0.0, 0.0, 1.0);
   for (int i = FIRST[k]; i < FIRST[k + 1]; i++) {
-    vec4 p = texelFetch(uPlanes, ivec2(i, 0), 0);
+    vec4 p = uPlanes[i];
     float dn = dot(p.xyz, d), gap = p.w - dot(p.xyz, o);
     if (dn < 0.0) {
       float t = gap / dn;
@@ -173,7 +176,7 @@ float leave(inout int k, vec3 origin, vec3 direction, out vec3 normal) {
       int j = PARTNERS[i];
       // Only a partner holding the exit point can extend it, so one whose bounds miss it is skipped.
       vec3 local = (origin + direction * (exit + EPSILON) - uOffset[j]) * uRotation[j] / uScale[j];
-      vec4 sphere = texelFetch(uPlanes, ivec2(FIRST_SPHERE + j, 0), 0);
+      vec4 sphere = uPlanes[FIRST_SPHERE + j];
       vec3 offset = local - sphere.xyz;
       if (dot(offset, offset) > sphere.w) continue;
       vec3 outward;

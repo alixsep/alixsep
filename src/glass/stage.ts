@@ -1,9 +1,9 @@
+import { bufferSize } from "./renderer"
+
 import type { Renderer } from "./renderer"
 
 /** Radians the studio lights turn per viewport height scrolled. */
 const LIGHT_PER_SCREEN = 1.6
-/** Twice the CSS pixels on every screen: on DPR 1 this supersamples shading that otherwise aliases. */
-const PIXEL_RATIO = 2
 /** Reallocating a canvas is costly, so while a window is dragged the last frame stretches instead. */
 const RESIZE_SETTLES_MS = 150
 
@@ -90,7 +90,7 @@ export function stage(
   darkScheme.addEventListener("change", applyTheme, { signal })
 
   let sized = false
-  let pendingSize: [width: number, height: number] | null = null
+  let pendingSize: readonly [width: number, height: number] | null = null
   let settling = 0
   const applySize = () => {
     if (!pendingSize) return
@@ -103,7 +103,7 @@ export function stage(
   const sizeWatch = new ResizeObserver(([entry]) => {
     if (!entry) return
     const { width, height } = entry.contentRect
-    pendingSize = [Math.round(width * PIXEL_RATIO), Math.round(height * PIXEL_RATIO)]
+    pendingSize = bufferSize(width, height)
     clearTimeout(settling)
     if (!sized) {
       sized = true
@@ -142,7 +142,7 @@ export function stage(
     /** Sizes the canvas now, for a change that cannot stretch while resizing settles. */
     fit: () => {
       const { width, height } = canvas.getBoundingClientRect()
-      pendingSize = [Math.round(width * PIXEL_RATIO), Math.round(height * PIXEL_RATIO)]
+      pendingSize = bufferSize(width, height)
       applySize()
     },
     isVisible: () => visible,

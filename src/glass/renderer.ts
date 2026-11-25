@@ -11,6 +11,8 @@ import {
 import type { Piece } from "./geometry"
 
 export const FIELD_OF_VIEW = (18 * Math.PI) / 180
+/** Twice the CSS pixels on every screen: on DPR 1 this supersamples shading that otherwise aliases. */
+const PIXEL_RATIO = 2
 
 /** Absorption per channel: neutral on a dark page, a cool smoke on a light one. */
 const CLEAR = [0.055, 0.055, 0.055]
@@ -36,6 +38,10 @@ function compile(gl: WebGL2RenderingContext, type: GLenum, source: string) {
   gl.compileShader(shader)
   return shader
 }
+
+/** The drawing buffer for a canvas `width` by `height` CSS pixels across. */
+export const bufferSize = (width: number, height: number) =>
+  [Math.round(width * PIXEL_RATIO), Math.round(height * PIXEL_RATIO)] as const
 
 export const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
 
@@ -83,6 +89,9 @@ export async function createRenderer(
     inlay,
   }: Options = {},
 ) {
+  // Sized before the context exists, the drawing buffer is allocated once instead of on every resize.
+  const { width, height } = getComputedStyle(canvas)
+  ;[canvas.width, canvas.height] = bufferSize(parseFloat(width), parseFloat(height))
   const gl = canvas.getContext("webgl2", { antialias: true, stencil: false })
   if (!gl) return null
 
@@ -92,10 +101,7 @@ export async function createRenderer(
   gl.bindVertexArray(gl.createVertexArray())
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
 
-  gl.activeTexture(gl.TEXTURE1)
-  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+  gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, gl.createBuffer())
 
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
@@ -182,19 +188,8 @@ export async function createRenderer(
       const planes = new Float32Array(
         [...pieces.flatMap((piece) => piece.planes), ...pieces.map(boundingSphere)].flat(),
       )
-      gl.activeTexture(gl.TEXTURE1)
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA32F,
-        planes.length / 4,
-        1,
-        0,
-        gl.RGBA,
-        gl.FLOAT,
-        planes,
-      )
-      gl.uniform1i(uniform("uPlanes"), 1)
+      gl.bufferData(gl.UNIFORM_BUFFER, planes, gl.STATIC_DRAW)
+      gl.uniformBlockBinding(program, gl.getUniformBlockIndex(program, "Planes"), 0)
       if (print) {
         gl.uniform1i(uniform("uPrint"), 2)
         gl.uniform2f(uniform("uPrintSize"), ...print.size)
