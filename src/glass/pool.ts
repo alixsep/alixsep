@@ -29,7 +29,12 @@ interface Tenant {
 const tenants = new Map<Element, Tenant>()
 let draining = false
 
-const idle = () => new Promise((resolve) => requestIdleCallback(resolve, { timeout: 300 }))
+const idle = () =>
+  new Promise((resolve) =>
+    "requestIdleCallback" in window
+      ? requestIdleCallback(resolve, { timeout: 300 })
+      : setTimeout(resolve, 50),
+  )
 
 /** How far the element sits outside the viewport; zero once any of it is in view. */
 const distance = ({ element }: Tenant) => {
