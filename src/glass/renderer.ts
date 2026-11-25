@@ -1,9 +1,9 @@
 import { bakeEnvironment } from "./environment"
-import { overlapping, triangulate } from "./geometry"
+import { boundingSphere, overlapping, triangulate } from "./geometry"
 import {
-  depthFragmentShader,
   EXPOSURE,
   fragmentShader,
+  paperFragmentShader,
   paperVertexShader,
   vertexShader,
 } from "./shader"
@@ -19,9 +19,16 @@ const SMOKE = [0.26, 0.23, 0.15]
 
 export interface PoseBuffers {
   rotations: Float32Array
-  /** Position and uniform scale per piece. */
-  placements: Float32Array
+  offsets: Float32Array
+  /** Uniform scale per piece. */
+  scales: Float32Array
 }
+
+export const poseBuffers = (count: number): PoseBuffers => ({
+  rotations: new Float32Array(count * 9),
+  offsets: new Float32Array(count * 3),
+  scales: new Float32Array(count).fill(1),
+})
 
 function compile(gl: WebGL2RenderingContext, type: GLenum, source: string) {
   const shader = gl.createShader(type)!
@@ -81,7 +88,6 @@ export async function createRenderer(
 
   gl.enable(gl.DEPTH_TEST)
   gl.enable(gl.CULL_FACE)
-  gl.polygonOffset(0, 1)
   gl.clearColor(0, 0, 0, 0)
   gl.bindVertexArray(gl.createVertexArray())
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
@@ -120,9 +126,7 @@ export async function createRenderer(
   }
 
   let program: WebGLProgram | undefined
-  let depthProgram: WebGLProgram | undefined
-  let locations: Record<"rotation" | "placement" | "yaw", WebGLUniformLocation | null>
-  let depthLocations: Record<"rotation" | "placement", WebGLUniformLocation | null>
+  let locations: Record<"rotation" | "offset" | "scale" | "yaw", WebGLUniformLocation | null>
   let vertexCount = 0
   let page: { backdrop: readonly [number, number, number]; light: boolean } | undefined
 
@@ -154,40 +158,30 @@ export async function createRenderer(
     fieldOfView: number,
     partners = overlapping(pieces),
   ) => {
-    const [linked, depthLinked] = await Promise.all([
-      link(
-        gl,
-        vertexShader(pieces.length),
-        fragmentShader(pieces, partners, { printed: !!print, inlaid: !!inlay }),
-      ),
-      link(gl, vertexShader(pieces.length), depthFragmentShader),
-    ])
+    const linked = await link(
+      gl,
+      vertexShader(pieces.length),
+      fragmentShader(pieces, partners, { printed: !!print, inlaid: !!inlay }),
+    )
     return () => {
       if (program) gl.deleteProgram(program)
-      if (depthProgram) gl.deleteProgram(depthProgram)
       program = linked
-      depthProgram = depthLinked
-      depthLocations = {
-        rotation: gl.getUniformLocation(depthProgram, "uRotation"),
-        placement: gl.getUniformLocation(depthProgram, "uPlacement"),
-      }
       gl.useProgram(program)
 
       const mesh = triangulate(pieces)
       const stride = 7 * Float32Array.BYTES_PER_ELEMENT
       vertexCount = mesh.length / 7
       gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW)
-      const attributes = [
-        [3, 0],
-        [3, 3],
-        [1, 6],
-      ] as const
-      attributes.forEach(([size, offset], location) => {
+      const attributes = { aPosition: [3, 0], aNormal: [3, 3], aPiece: [1, 6] } as const
+      for (const [name, [size, offset]] of Object.entries(attributes)) {
+        const location = gl.getAttribLocation(program, name)
         gl.enableVertexAttribArray(location)
         gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride, offset * 4)
-      })
+      }
 
-      const planes = new Float32Array(pieces.flatMap((piece) => piece.planes.flat()))
+      const planes = new Float32Array(
+        [...pieces.flatMap((piece) => piece.planes), ...pieces.map(boundingSphere)].flat(),
+      )
       gl.activeTexture(gl.TEXTURE1)
       gl.texImage2D(
         gl.TEXTURE_2D,
@@ -213,7 +207,8 @@ export async function createRenderer(
       gl.uniform2f(uniform("uBackdropRange"), backdropRange[0], backdropRange[1])
       locations = {
         rotation: uniform("uRotation"),
-        placement: uniform("uPlacement"),
+        offset: uniform("uOffset"),
+        scale: uniform("uScale"),
         yaw: uniform("uYaw"),
       }
       frame(view, fieldOfView)
@@ -223,7 +218,7 @@ export async function createRenderer(
 
   // A mark too large for this GPU's uniform limits fails to link; the flat mark then stays.
   const [paper, swap] = await Promise.all([
-    link(gl, paperVertexShader, depthFragmentShader),
+    link(gl, paperVertexShader, paperFragmentShader),
     reshape(pieces, view, fieldOfView, partners),
   ]).catch(() => [null, null])
   if (!paper || !swap) return null
@@ -231,7 +226,7 @@ export async function createRenderer(
 
   const frame = (view: View, fieldOfView: number) => {
     const tangent = Math.tan(fieldOfView / 2)
-    for (const shaded of [paper, program!, depthProgram!]) {
+    for (const shaded of [paper, program!]) {
       gl.useProgram(shaded)
       gl.uniform2f(
         gl.getUniformLocation(shaded, "uHalfView"),
@@ -264,24 +259,17 @@ export async function createRenderer(
     /** With `page` set, glass behind the plane z = `page` is hidden, as if emerging from it. */
     draw(pose: PoseBuffers, lightYaw: number, page?: number) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-      gl.colorMask(false, false, false, false)
       if (page !== undefined) {
         gl.useProgram(paper)
         gl.uniform1f(clip, page)
+        gl.colorMask(false, false, false, false)
         gl.drawArrays(gl.TRIANGLES, 0, 3)
+        gl.colorMask(true, true, true, true)
+        gl.useProgram(program!)
       }
-      // Depth first, one step back, so each pixel is traced once and ties still go to the first drawn.
-      gl.useProgram(depthProgram!)
-      gl.uniformMatrix3fv(depthLocations.rotation, false, pose.rotations)
-      gl.uniform4fv(depthLocations.placement, pose.placements)
-      gl.enable(gl.POLYGON_OFFSET_FILL)
-      gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
-      gl.disable(gl.POLYGON_OFFSET_FILL)
-      gl.colorMask(true, true, true, true)
-
-      gl.useProgram(program!)
       gl.uniformMatrix3fv(locations.rotation, false, pose.rotations)
-      gl.uniform4fv(locations.placement, pose.placements)
+      gl.uniform3fv(locations.offset, pose.offsets)
+      gl.uniform1fv(locations.scale, pose.scales)
       gl.uniform1f(locations.yaw, lightYaw)
       gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
     },

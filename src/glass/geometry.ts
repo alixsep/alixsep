@@ -286,6 +286,14 @@ export function centroid(points: Vector[]) {
   )
 }
 
+/** A sphere holding the whole piece, as centre and squared radius, a touch generous for rounding. */
+export function boundingSphere({ faces }: Piece) {
+  const corners = faces.flatMap(({ corners }) => corners)
+  const center = centroid(corners)
+  const radius = Math.max(...corners.map((corner) => Math.hypot(...subtract(corner, center))))
+  return [...center, (radius * 1.001 + 1e-4) ** 2]
+}
+
 /** A convex solid from its faces, each a planar polygon; normals point away from its middle. */
 export function solid(outlines: Vector[][]): Piece {
   const corners = [...new Set(outlines.flat())]

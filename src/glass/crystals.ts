@@ -2,11 +2,10 @@ import { gsap } from "gsap"
 
 import { CRYSTAL, CRYSTAL_RADIUS, crystalFrame, cutCrystal, restingX, rotation } from "./geometry"
 import { pointerInWorld, watchTilt } from "./input"
-import { createRenderer } from "./renderer"
+import { createRenderer, poseBuffers } from "./renderer"
 import { prefersStill, scrollLight, stage } from "./stage"
 
 import type { Point } from "./input"
-import type { PoseBuffers } from "./renderer"
 
 /** Springs towards the centre, weaker sideways so the pile spreads into a line. */
 const PULL = { x: 0.9, y: 6.5, z: 14 }
@@ -94,10 +93,7 @@ export async function mountCrystals(pile: HTMLElement, signal: AbortSignal) {
     vy: 0,
     time: 0,
   }
-  const buffers: PoseBuffers = {
-    rotations: new Float32Array(count * 9),
-    placements: new Float32Array(count * 4),
-  }
+  const buffers = poseBuffers(count)
   let shown = 0
   let calm = 0
   let resting = 0
@@ -106,7 +102,7 @@ export async function mountCrystals(pile: HTMLElement, signal: AbortSignal) {
   const draw = () => {
     stones.forEach((stone, i) => {
       buffers.rotations.set(rotation(stone.lean, stone.yaw), i * 9)
-      buffers.placements.set([stone.x, stone.y, depthOf(stone), 1], i * 4)
+      buffers.offsets.set([stone.x, stone.y, depthOf(stone)], i * 3)
     })
     const crossing = stones.some((stone) => depthOf(stone) - EXTENT < PAGE)
     renderer.draw(buffers, scrollLight(), crossing ? PAGE : undefined)

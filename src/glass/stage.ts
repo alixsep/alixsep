@@ -6,8 +6,6 @@ const LIGHT_PER_SCREEN = 1.6
 const PIXEL_RATIO = 2
 /** Reallocating a canvas is costly, so while a window is dragged the last frame stretches instead. */
 const RESIZE_SETTLES_MS = 150
-/** Scroll alone relights glass about 30 times a second; anything moving still draws every frame. */
-const RELIGHT_MS = 25
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
 const darkScheme = matchMedia("(prefers-color-scheme: dark)")
@@ -69,10 +67,9 @@ export function stage(
     queueMicrotask(render)
   }
   // Scroll fires before this frame's animation callbacks, so relighting after them sees whether they drew.
-  const relight = () => {
-    if (performance.now() - drawnAt < RELIGHT_MS) return void requestAnimationFrame(relight)
+  const relight = (frameStart: number) => {
     relighting = false
-    render()
+    if (drawnAt < frameStart) render()
   }
   const invalidateLight = () => {
     if (relighting) return

@@ -4,11 +4,10 @@ import { ease } from "@/lib/motion"
 
 import { centroid, multiply, rotation, subtract, transform } from "./geometry"
 import { watchSettledTilt } from "./input"
-import { createRenderer, nextFrame } from "./renderer"
+import { createRenderer, nextFrame, poseBuffers } from "./renderer"
 import { sculpture, SCULPTURE_FIELD_OF_VIEW, sculptureView } from "./sculptures"
 import { onFirstSight, prefersStill, scrollLight, stage } from "./stage"
 
-import type { PoseBuffers } from "./renderer"
 import type { SculptureName } from "./sculptures"
 
 const LEAN = { pitch: 0.28, yaw: 0.5 }
@@ -56,10 +55,7 @@ export async function mountSculpture(figure: HTMLElement, signal: AbortSignal) {
   /** Heavy to trace, so it is lit once and redrawn only while it moves, never on scroll. */
   const light = scrollLight()
   const count = shape.pieces.length
-  const buffers: PoseBuffers = {
-    rotations: new Float32Array(count * 9),
-    placements: new Float32Array(count * 4),
-  }
+  const buffers = poseBuffers(count)
   // Each part turns about its own centre, then the whole sculpture leans about its middle.
   const draw = () => {
     const leaning = rotation(lean.pitch, lean.yaw)
@@ -70,7 +66,8 @@ export async function mountSculpture(figure: HTMLElement, signal: AbortSignal) {
       const scale = scaleAt(depth)
       for (const index of members) {
         buffers.rotations.set(turn, index * 9)
-        buffers.placements.set([dx * scale, dy * scale, depth + dz * scale, scale], index * 4)
+        buffers.offsets.set([dx * scale, dy * scale, depth + dz * scale], index * 3)
+        buffers.scales[index] = scale
       }
     })
     renderer.draw(buffers, light, page)

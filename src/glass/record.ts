@@ -3,10 +3,8 @@ import { gsap } from "gsap"
 import { ease } from "@/lib/motion"
 
 import { cutSlab, RECORD_ART, RECORD_MARGIN, rotation } from "./geometry"
-import { createRenderer, nextFrame } from "./renderer"
+import { createRenderer, nextFrame, poseBuffers } from "./renderer"
 import { onFirstSight, prefersStill, scrollLight, stage } from "./stage"
-
-import type { PoseBuffers } from "./renderer"
 
 const TILE = 512
 
@@ -58,10 +56,10 @@ export async function mountRecord(frame: HTMLElement, signal: AbortSignal) {
   const still = prefersStill()
   const pose = { lift: 0, pitch: 0, yaw: 0 }
   const rise = still ? { depth: 0, pitch: 0 } : { ...SUNK }
-  const buffers: PoseBuffers = { rotations: new Float32Array(9), placements: new Float32Array(4) }
+  const buffers = poseBuffers(1)
   const draw = () => {
     buffers.rotations.set(rotation(pose.pitch + rise.pitch, pose.yaw))
-    buffers.placements.set([0, 0, pose.lift + rise.depth, 1])
+    buffers.offsets.set([0, 0, pose.lift + rise.depth])
     renderer.draw(buffers, scrollLight(), PAGE)
   }
   const { invalidate, onRelease } = stage(canvas, renderer, draw, signal)

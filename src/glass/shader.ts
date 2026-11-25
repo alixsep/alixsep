@@ -1,13 +1,13 @@
-import { centroid, subtract } from "./geometry"
-
 import type { Piece } from "./geometry"
 
 /** The tone curve's exposure: output = 1 - exp(-light * EXPOSURE). */
 export const EXPOSURE = 1.3
 
+// Apart, not one vec4: Adreno drivers fail to link a vertex shader indexing a vec4 uniform array.
 const transforms = (count: number) => `
 uniform mat3 uRotation[${count}];
-uniform vec4 uPlacement[${count}];
+uniform vec3 uOffset[${count}];
+uniform float uScale[${count}];
 uniform float uEyeDistance;`
 
 const project = `
@@ -25,19 +25,18 @@ export function vertexShader(count: number) {
 ${transforms(count)}
 uniform vec2 uHalfView;
 
-layout(location = 0) in vec3 aPosition;
-layout(location = 1) in vec3 aNormal;
-layout(location = 2) in float aPiece;
+in vec3 aPosition;
+in vec3 aNormal;
+in float aPiece;
 
 centroid out vec3 vWorld;
 centroid out vec3 vNormal;
 flat out int vPiece;
-invariant gl_Position;
 ${project}
 
 void main() {
   int k = int(aPiece + 0.5);
-  vWorld = uPlacement[k].xyz + uRotation[k] * (aPosition * uPlacement[k].w);
+  vWorld = uOffset[k] + uRotation[k] * (aPosition * uScale[k]);
   vNormal = uRotation[k] * aNormal;
   vPiece = k;
   gl_Position = project(vWorld);
@@ -56,8 +55,7 @@ void main() {
   gl_Position = project(vec3(corner * uEyeDistance * 4.0, uClip));
 }`
 
-/** Writes nothing but depth, for passes drawn with colour masked off. */
-export const depthFragmentShader = `#version 300 es
+export const paperFragmentShader = `#version 300 es
 precision mediump float;
 out vec4 color;
 
@@ -83,14 +81,6 @@ export function fragmentShader(
   const partnerList = partners.flat()
   if (!partnerList.length) partnerList.push(-1)
   const groupSize = Math.max(...partners.map((group) => group.length))
-  const bounds = pieces.map(({ faces }) => {
-    const corners = faces.flatMap(({ corners }) => corners)
-    const center = centroid(corners)
-    const radius = Math.max(...corners.map((corner) => Math.hypot(...subtract(corner, center))))
-    // Slack for rounding, so a point on the surface is never judged outside.
-    const reach = radius * 1.001 + 1e-4
-    return { center: `vec3(${center.map((value) => value.toFixed(6)).join(", ")})`, reach }
-  })
 
   return `#version 300 es
 precision highp float;
@@ -121,8 +111,7 @@ const int FIRST[${count + 1}] = int[${count + 1}](${firsts.join(", ")});
 const int FIRST_PARTNER[${count + 1}] = int[${count + 1}](${partnerFirsts.join(", ")});
 const int PARTNERS[${partnerList.length}] = int[${partnerList.length}](${partnerList.join(", ")});
 const int GROUP_SIZE = ${groupSize};
-const vec3 BOUND_CENTER[${count}] = vec3[${count}](${bounds.map(({ center }) => center).join(", ")});
-const float BOUND_REACH_SQUARED[${count}] = float[${count}](${bounds.map(({ reach }) => (reach * reach).toFixed(6)).join(", ")});
+const int FIRST_SPHERE = ${firsts.at(-1)};
 
 const float IOR = 2.02;
 const float DISPERSION = 0.018;
@@ -153,8 +142,8 @@ vec3 environment(vec3 d) {
 
 // Entry and exit distances of a world-space ray through piece k, with the facet normals.
 vec2 span(int k, vec3 origin, vec3 direction, out vec3 inward, out vec3 outward) {
-  vec3 o = (origin - uPlacement[k].xyz) * uRotation[k] / uPlacement[k].w;
-  vec3 d = direction * uRotation[k] / uPlacement[k].w;
+  vec3 o = (origin - uOffset[k]) * uRotation[k] / uScale[k];
+  vec3 d = direction * uRotation[k] / uScale[k];
   float near = -1e9, far = 1e9;
   inward = outward = vec3(0.0, 0.0, 1.0);
   for (int i = FIRST[k]; i < FIRST[k + 1]; i++) {
@@ -183,9 +172,10 @@ float leave(inout int k, vec3 origin, vec3 direction, out vec3 normal) {
     for (int i = FIRST_PARTNER[k]; i < FIRST_PARTNER[k + 1]; i++) {
       int j = PARTNERS[i];
       // Only a partner holding the exit point can extend it, so one whose bounds miss it is skipped.
-      vec3 local = (origin + direction * (exit + EPSILON) - uPlacement[j].xyz) * uRotation[j] / uPlacement[j].w;
-      vec3 offset = local - BOUND_CENTER[j];
-      if (dot(offset, offset) > BOUND_REACH_SQUARED[j]) continue;
+      vec3 local = (origin + direction * (exit + EPSILON) - uOffset[j]) * uRotation[j] / uScale[j];
+      vec4 sphere = texelFetch(uPlanes, ivec2(FIRST_SPHERE + j, 0), 0);
+      vec3 offset = local - sphere.xyz;
+      if (dot(offset, offset) > sphere.w) continue;
       vec3 outward;
       vec2 other = span(j, origin, direction, inward, outward);
       if (other.x <= exit + EPSILON && other.y > exit + EPSILON) {
@@ -202,13 +192,13 @@ float leave(inout int k, vec3 origin, vec3 direction, out vec3 normal) {
 
 // Coverage of the print on the top face of piece 0 at world point p.
 float print(vec3 p) {
-  vec3 local = (p - uPlacement[0].xyz) * uRotation[0] / uPlacement[0].w;
+  vec3 local = (p - uOffset[0]) * uRotation[0] / uScale[0];
   return texture(uPrint, local.xy / uPrintSize + 0.5).a;
 }
 
 // Artwork set behind the back table of piece k, seen where a ray leaves through it.
 bool inlay(int k, vec3 p, vec3 normal, out vec3 color) {
-  vec2 uv = ((p - uPlacement[k].xyz) * uRotation[k] / uPlacement[k].w).xy / uInlaySize + 0.5;
+  vec2 uv = ((p - uOffset[k]) * uRotation[k] / uScale[k]).xy / uInlaySize + 0.5;
   bool back = (normal * uRotation[k]).z < -0.999;
   if (!back || any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return false;
   vec2 tile = vec2(mod(float(k), uInlayGrid.x), uInlayGrid.y - 1.0 - floor(float(k) / uInlayGrid.x));

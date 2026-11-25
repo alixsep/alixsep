@@ -4,11 +4,10 @@ import { ease } from "@/lib/motion"
 
 import { rotation, SHELF_STEP, shelfFrame as VIEW } from "./geometry"
 import { bakeInlay, record as slab } from "./record"
-import { createRenderer, nextFrame } from "./renderer"
+import { createRenderer, nextFrame, poseBuffers } from "./renderer"
 import { onFirstSight, prefersStill, scrollLight, stage } from "./stage"
 
 import type { Piece, Vector } from "./geometry"
-import type { PoseBuffers } from "./renderer"
 
 const FIELD_OF_VIEW = 0.4
 const SHELF = { step: 0.18, depth: -0.3, turn: 0.72, hover: 0.14 }
@@ -104,16 +103,13 @@ export async function mountShelf(
   let hovered: number | undefined
   const poses = covers.map((_, i) => resting(i - current, false))
   const rise: Rise[] = covers.map(() => (still ? { depth: 0, pitch: 0 } : { ...SUNK }))
-  const buffers: PoseBuffers = {
-    rotations: new Float32Array(pieces.length * 9),
-    placements: new Float32Array(pieces.length * 4),
-  }
+  const buffers = poseBuffers(pieces.length)
   const light = scrollLight()
   const draw = () => {
     poses.forEach((pose, i) => {
       const { turn, centre } = placement(pose, rise[i]!)
       buffers.rotations.set(turn, i * 9)
-      buffers.placements.set([...centre, 1], i * 4)
+      buffers.offsets.set(centre, i * 3)
     })
     renderer.draw(buffers, light, PAGE)
   }

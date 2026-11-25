@@ -4,10 +4,8 @@ import { ease } from "@/lib/motion"
 
 import { cutSlab, halfDepth, rotation, waist } from "./geometry"
 import { TILT_LIMIT, watchSettledTilt } from "./input"
-import { createRenderer, nextFrame } from "./renderer"
+import { createRenderer, nextFrame, poseBuffers } from "./renderer"
 import { prefersStill, scrollLight, stage } from "./stage"
-
-import type { PoseBuffers } from "./renderer"
 
 /** World units the slab stands tall, which keeps its cut in the proportions of a keycap. */
 const HEIGHT = 4 / 3
@@ -80,10 +78,10 @@ export async function mountGlassButton(
   const rises = entrance && !still
   const rise = rises ? { ...sunk } : { pitch: 0, yaw: 0, depth: 0 }
   const pose = { pitch: 0, yaw: 0, press: 0 }
-  const buffers: PoseBuffers = { rotations: new Float32Array(9), placements: new Float32Array(4) }
+  const buffers = poseBuffers(1)
   const draw = () => {
     buffers.rotations.set(rotation(pose.pitch + rise.pitch, pose.yaw + rise.yaw))
-    buffers.placements.set([0, 0, rise.depth - waist(CUT) - pose.press, 1])
+    buffers.offsets.set([0, 0, rise.depth - waist(CUT) - pose.press])
     renderer.draw(buffers, scrollLight(), page)
   }
   const { invalidate } = stage(canvas, renderer, draw, signal)

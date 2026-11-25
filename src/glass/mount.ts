@@ -6,11 +6,10 @@ import { relayout } from "./figure"
 import { setText } from "./font"
 import { cutMark, framePad, halfDepth, rotation, waist } from "./geometry"
 import { createInteraction } from "./interaction"
-import { createRenderer, FIELD_OF_VIEW, nextFrame } from "./renderer"
+import { createRenderer, FIELD_OF_VIEW, nextFrame, poseBuffers } from "./renderer"
 import { onFirstSight, prefersStill, scrollLight, stage } from "./stage"
 
 import type { Mark } from "./font"
-import type { PoseBuffers } from "./renderer"
 
 /** Seconds the pencil takes to outline a glyph, and between one glyph and the next. */
 const PEN = { duration: 0.42, stagger: 0.07 }
@@ -33,10 +32,7 @@ function cutGlass(mark: Mark) {
   const outlines = glyphs.map(({ center: [gx, gy], members }) =>
     members.flatMap((index) => pieces[index]!.outline.map(([x, y]) => [x - gx, y - gy] as const)),
   )
-  const buffers: PoseBuffers = {
-    rotations: new Float32Array(pieces.length * 9),
-    placements: new Float32Array(pieces.length * 4),
-  }
+  const buffers = poseBuffers(pieces.length)
   return { mark, pieces, glyphs, view, fieldOfView: 2 * Math.atan(tangent), outlines, buffers }
 }
 
@@ -117,14 +113,13 @@ export async function mountGlass(
       for (const index of members) {
         const [dx, dy] = [cut.pieces[index]!.center[0] - gx, cut.pieces[index]!.center[1] - gy]
         cut.buffers.rotations.set(turn, index * 9)
-        cut.buffers.placements.set(
+        cut.buffers.offsets.set(
           [
             gx + turn[0] * dx + turn[3] * dy,
             gy + turn[1] * dx + turn[4] * dy,
             turn[2] * dx + turn[5] * dy - waist() + depth,
-            1,
           ],
-          index * 4,
+          index * 3,
         )
       }
     })
