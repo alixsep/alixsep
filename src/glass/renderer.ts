@@ -1,9 +1,9 @@
 import { bakeEnvironment } from "./environment"
 import { overlapping, triangulate } from "./geometry"
 import {
+  depthFragmentShader,
   EXPOSURE,
   fragmentShader,
-  paperFragmentShader,
   paperVertexShader,
   vertexShader,
 } from "./shader"
@@ -81,6 +81,7 @@ export async function createRenderer(
 
   gl.enable(gl.DEPTH_TEST)
   gl.enable(gl.CULL_FACE)
+  gl.polygonOffset(0, 1)
   gl.clearColor(0, 0, 0, 0)
   gl.bindVertexArray(gl.createVertexArray())
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
@@ -119,7 +120,9 @@ export async function createRenderer(
   }
 
   let program: WebGLProgram | undefined
+  let depthProgram: WebGLProgram | undefined
   let locations: Record<"rotation" | "placement" | "yaw", WebGLUniformLocation | null>
+  let depthLocations: Record<"rotation" | "placement", WebGLUniformLocation | null>
   let vertexCount = 0
   let page: { backdrop: readonly [number, number, number]; light: boolean } | undefined
 
@@ -151,26 +154,38 @@ export async function createRenderer(
     fieldOfView: number,
     partners = overlapping(pieces),
   ) => {
-    const linked = await link(
-      gl,
-      vertexShader(pieces.length),
-      fragmentShader(pieces, partners, { printed: !!print, inlaid: !!inlay }),
-    )
+    const [linked, depthLinked] = await Promise.all([
+      link(
+        gl,
+        vertexShader(pieces.length),
+        fragmentShader(pieces, partners, { printed: !!print, inlaid: !!inlay }),
+      ),
+      link(gl, vertexShader(pieces.length), depthFragmentShader),
+    ])
     return () => {
       if (program) gl.deleteProgram(program)
+      if (depthProgram) gl.deleteProgram(depthProgram)
       program = linked
+      depthProgram = depthLinked
+      depthLocations = {
+        rotation: gl.getUniformLocation(depthProgram, "uRotation"),
+        placement: gl.getUniformLocation(depthProgram, "uPlacement"),
+      }
       gl.useProgram(program)
 
       const mesh = triangulate(pieces)
       const stride = 7 * Float32Array.BYTES_PER_ELEMENT
       vertexCount = mesh.length / 7
       gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW)
-      const attributes = { aPosition: [3, 0], aNormal: [3, 3], aPiece: [1, 6] } as const
-      for (const [name, [size, offset]] of Object.entries(attributes)) {
-        const location = gl.getAttribLocation(program, name)
+      const attributes = [
+        [3, 0],
+        [3, 3],
+        [1, 6],
+      ] as const
+      attributes.forEach(([size, offset], location) => {
         gl.enableVertexAttribArray(location)
         gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride, offset * 4)
-      }
+      })
 
       const planes = new Float32Array(pieces.flatMap((piece) => piece.planes.flat()))
       gl.activeTexture(gl.TEXTURE1)
@@ -208,7 +223,7 @@ export async function createRenderer(
 
   // A mark too large for this GPU's uniform limits fails to link; the flat mark then stays.
   const [paper, swap] = await Promise.all([
-    link(gl, paperVertexShader, paperFragmentShader),
+    link(gl, paperVertexShader, depthFragmentShader),
     reshape(pieces, view, fieldOfView, partners),
   ]).catch(() => [null, null])
   if (!paper || !swap) return null
@@ -216,7 +231,7 @@ export async function createRenderer(
 
   const frame = (view: View, fieldOfView: number) => {
     const tangent = Math.tan(fieldOfView / 2)
-    for (const shaded of [paper, program!]) {
+    for (const shaded of [paper, program!, depthProgram!]) {
       gl.useProgram(shaded)
       gl.uniform2f(
         gl.getUniformLocation(shaded, "uHalfView"),
@@ -249,14 +264,22 @@ export async function createRenderer(
     /** With `page` set, glass behind the plane z = `page` is hidden, as if emerging from it. */
     draw(pose: PoseBuffers, lightYaw: number, page?: number) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+      gl.colorMask(false, false, false, false)
       if (page !== undefined) {
         gl.useProgram(paper)
         gl.uniform1f(clip, page)
-        gl.colorMask(false, false, false, false)
         gl.drawArrays(gl.TRIANGLES, 0, 3)
-        gl.colorMask(true, true, true, true)
-        gl.useProgram(program!)
       }
+      // Depth first, one step back, so each pixel is traced once and ties still go to the first drawn.
+      gl.useProgram(depthProgram!)
+      gl.uniformMatrix3fv(depthLocations.rotation, false, pose.rotations)
+      gl.uniform4fv(depthLocations.placement, pose.placements)
+      gl.enable(gl.POLYGON_OFFSET_FILL)
+      gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
+      gl.disable(gl.POLYGON_OFFSET_FILL)
+      gl.colorMask(true, true, true, true)
+
+      gl.useProgram(program!)
       gl.uniformMatrix3fv(locations.rotation, false, pose.rotations)
       gl.uniform4fv(locations.placement, pose.placements)
       gl.uniform1f(locations.yaw, lightYaw)

@@ -6,6 +6,8 @@ const LIGHT_PER_SCREEN = 1.6
 const PIXEL_RATIO = 2
 /** Reallocating a canvas is costly, so while a window is dragged the last frame stretches instead. */
 const RESIZE_SETTLES_MS = 150
+/** Scroll alone relights glass about 30 times a second; anything moving still draws every frame. */
+const RELIGHT_MS = 25
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)")
 const darkScheme = matchMedia("(prefers-color-scheme: dark)")
@@ -51,16 +53,31 @@ export function stage(
 ) {
   let visible = true
   let scheduled = false
+  let relighting = false
+  let drawnAt = -Infinity
   const observers: { disconnect: () => void }[] = []
 
   const render = () => {
     scheduled = false
-    if (visible) draw()
+    if (!visible) return
+    drawnAt = performance.now()
+    draw()
   }
   const invalidate = () => {
     if (scheduled) return
     scheduled = true
     queueMicrotask(render)
+  }
+  // Scroll fires before this frame's animation callbacks, so relighting after them sees whether they drew.
+  const relight = () => {
+    if (performance.now() - drawnAt < RELIGHT_MS) return void requestAnimationFrame(relight)
+    relighting = false
+    render()
+  }
+  const invalidateLight = () => {
+    if (relighting) return
+    relighting = true
+    requestAnimationFrame(relight)
   }
 
   const applyTheme = () => {
@@ -108,13 +125,13 @@ export function stage(
         invalidate()
       }
     },
-    { rootMargin: "50% 0px" },
+    { rootMargin: "15% 0px" },
   )
   viewWatch.observe(canvas)
   observers.push(themeWatch, sizeWatch, viewWatch, { disconnect: () => clearTimeout(settling) })
 
   if (followScroll && !prefersStill())
-    addEventListener("scroll", invalidate, { passive: true, signal })
+    addEventListener("scroll", invalidateLight, { passive: true, signal })
 
   const release = () => {
     for (const observer of observers) observer.disconnect()

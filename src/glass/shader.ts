@@ -1,3 +1,5 @@
+import { centroid, subtract } from "./geometry"
+
 import type { Piece } from "./geometry"
 
 /** The tone curve's exposure: output = 1 - exp(-light * EXPOSURE). */
@@ -23,13 +25,14 @@ export function vertexShader(count: number) {
 ${transforms(count)}
 uniform vec2 uHalfView;
 
-in vec3 aPosition;
-in vec3 aNormal;
-in float aPiece;
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in float aPiece;
 
 centroid out vec3 vWorld;
 centroid out vec3 vNormal;
 flat out int vPiece;
+invariant gl_Position;
 ${project}
 
 void main() {
@@ -53,7 +56,8 @@ void main() {
   gl_Position = project(vec3(corner * uEyeDistance * 4.0, uClip));
 }`
 
-export const paperFragmentShader = `#version 300 es
+/** Writes nothing but depth, for passes drawn with colour masked off. */
+export const depthFragmentShader = `#version 300 es
 precision mediump float;
 out vec4 color;
 
@@ -79,6 +83,14 @@ export function fragmentShader(
   const partnerList = partners.flat()
   if (!partnerList.length) partnerList.push(-1)
   const groupSize = Math.max(...partners.map((group) => group.length))
+  const bounds = pieces.map(({ faces }) => {
+    const corners = faces.flatMap(({ corners }) => corners)
+    const center = centroid(corners)
+    const radius = Math.max(...corners.map((corner) => Math.hypot(...subtract(corner, center))))
+    // Slack for rounding, so a point on the surface is never judged outside.
+    const reach = radius * 1.001 + 1e-4
+    return { center: `vec3(${center.map((value) => value.toFixed(6)).join(", ")})`, reach }
+  })
 
   return `#version 300 es
 precision highp float;
@@ -109,6 +121,8 @@ const int FIRST[${count + 1}] = int[${count + 1}](${firsts.join(", ")});
 const int FIRST_PARTNER[${count + 1}] = int[${count + 1}](${partnerFirsts.join(", ")});
 const int PARTNERS[${partnerList.length}] = int[${partnerList.length}](${partnerList.join(", ")});
 const int GROUP_SIZE = ${groupSize};
+const vec3 BOUND_CENTER[${count}] = vec3[${count}](${bounds.map(({ center }) => center).join(", ")});
+const float BOUND_REACH_SQUARED[${count}] = float[${count}](${bounds.map(({ reach }) => (reach * reach).toFixed(6)).join(", ")});
 
 const float IOR = 2.02;
 const float DISPERSION = 0.018;
@@ -168,6 +182,10 @@ float leave(inout int k, vec3 origin, vec3 direction, out vec3 normal) {
     bool extended = false;
     for (int i = FIRST_PARTNER[k]; i < FIRST_PARTNER[k + 1]; i++) {
       int j = PARTNERS[i];
+      // Only a partner holding the exit point can extend it, so one whose bounds miss it is skipped.
+      vec3 local = (origin + direction * (exit + EPSILON) - uPlacement[j].xyz) * uRotation[j] / uPlacement[j].w;
+      vec3 offset = local - BOUND_CENTER[j];
+      if (dot(offset, offset) > BOUND_REACH_SQUARED[j]) continue;
       vec3 outward;
       vec2 other = span(j, origin, direction, inward, outward);
       if (other.x <= exit + EPSILON && other.y > exit + EPSILON) {
