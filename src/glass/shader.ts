@@ -1,14 +1,40 @@
+import { boundingSphere } from "./geometry"
+
 import type { Piece } from "./geometry"
 
 /** The tone curve's exposure: output = 1 - exp(-light * EXPOSURE). */
 export const EXPOSURE = 1.3
 
+/**
+ * Every glass declares pose arrays this long, so all glass shares one shader that the browser
+ * compiles once, instead of stalling the page to compile one per glass.
+ */
+const POSES = 40
+
 // Apart, not one vec4: Adreno drivers fail to link a vertex shader indexing a vec4 uniform array.
 const transforms = (count: number) => `
-uniform mat3 uRotation[${count}];
-uniform vec3 uOffset[${count}];
-uniform float uScale[${count}];
+uniform mat3 uRotation[${Math.max(count, POSES)}];
+uniform vec3 uOffset[${Math.max(count, POSES)}];
+uniform float uScale[${Math.max(count, POSES)}];
 uniform float uEyeDistance;`
+
+/**
+ * The texels of `uShape`, a row each: every piece's facet planes, then per piece its bounding
+ * sphere, where its planes and partners start and end, and last the partners themselves.
+ */
+export function shapeTexels(pieces: Piece[], partners: number[][]) {
+  const planes = pieces.flatMap((piece) => piece.planes)
+  const spans = pieces.map((piece, k) => {
+    const first = pieces.slice(0, k).reduce((sum, { planes }) => sum + planes.length, 0)
+    const firstPartner = partners.slice(0, k).flat().length
+    return [first, first + piece.planes.length, firstPartner, firstPartner + partners[k]!.length]
+  })
+  const rows = [planes, pieces.map(boundingSphere), spans, partners.flat().map((j) => [j, 0, 0, 0])]
+  const width = Math.max(...rows.map((row) => row.length), 1)
+  const texels = new Float32Array(width * rows.length * 4)
+  rows.forEach((row, y) => texels.set(row.flat(), y * width * 4))
+  return { texels, width, height: rows.length }
+}
 
 const project = `
 const float NEAR = 1.0;
@@ -67,29 +93,13 @@ void main() {
  * Refracts in at the rasterized surface, bounces under total internal reflection, and refracts
  * out. Overlapping pieces are traced as one union, so only the outer surface refracts.
  */
-export function fragmentShader(
-  pieces: Piece[],
-  partners: number[][],
-  { printed = false, inlaid = false } = {},
-) {
-  const count = pieces.length
-  const firsts = pieces.reduce((list, piece) => [...list, list.at(-1)! + piece.planes.length], [0])
-  const partnerFirsts = partners.reduce(
-    (list, group) => [...list, list.at(-1)! + group.length],
-    [0],
-  )
-  const partnerList = partners.flat()
-  if (!partnerList.length) partnerList.push(-1)
-  const groupSize = Math.max(...partners.map((group) => group.length))
-
+export function fragmentShader(count: number, { printed = false, inlaid = false } = {}) {
   return `#version 300 es
 precision highp float;
 precision highp int;
 ${transforms(count)}
-// Mobile GPUs read uniforms far faster than textures, and every bounce reads every facet.
-layout(std140) uniform Planes {
-  vec4 uPlanes[${firsts.at(-1)! + count}];
-};
+uniform highp sampler2D uShape;
+uniform int uGroupSize;
 uniform sampler2D uEnvironment;
 uniform float uYaw;
 // Pre-compensated so the tone curve returns the page colour unchanged.
@@ -109,12 +119,6 @@ centroid in vec3 vNormal;
 flat in int vPiece;
 
 out vec4 fragColor;
-
-const int FIRST[${count + 1}] = int[${count + 1}](${firsts.join(", ")});
-const int FIRST_PARTNER[${count + 1}] = int[${count + 1}](${partnerFirsts.join(", ")});
-const int PARTNERS[${partnerList.length}] = int[${partnerList.length}](${partnerList.join(", ")});
-const int GROUP_SIZE = ${groupSize};
-const int FIRST_SPHERE = ${firsts.at(-1)};
 
 const float IOR = 2.02;
 const float DISPERSION = 0.018;
@@ -143,14 +147,20 @@ vec3 environment(vec3 d) {
   return mix(color, uBackdrop, behind);
 }
 
+// Where piece k's planes start and end, then where its partners do.
+ivec4 spans(int k) {
+  return ivec4(texelFetch(uShape, ivec2(k, 2), 0));
+}
+
 // Entry and exit distances of a world-space ray through piece k, with the facet normals.
 vec2 span(int k, vec3 origin, vec3 direction, out vec3 inward, out vec3 outward) {
   vec3 o = (origin - uOffset[k]) * uRotation[k] / uScale[k];
   vec3 d = direction * uRotation[k] / uScale[k];
   float near = -1e9, far = 1e9;
   inward = outward = vec3(0.0, 0.0, 1.0);
-  for (int i = FIRST[k]; i < FIRST[k + 1]; i++) {
-    vec4 p = uPlanes[i];
+  ivec2 planes = spans(k).xy;
+  for (int i = planes.x; i < planes.y; i++) {
+    vec4 p = texelFetch(uShape, ivec2(i, 0), 0);
     float dn = dot(p.xyz, d), gap = p.w - dot(p.xyz, o);
     if (dn < 0.0) {
       float t = gap / dn;
@@ -170,13 +180,13 @@ vec2 span(int k, vec3 origin, vec3 direction, out vec3 inward, out vec3 outward)
 float leave(inout int k, vec3 origin, vec3 direction, out vec3 normal) {
   vec3 inward;
   float exit = span(k, origin, direction, inward, normal).y;
-  for (int pass = 0; pass < GROUP_SIZE; pass++) {
+  for (int pass = 0; pass < uGroupSize; pass++) {
     bool extended = false;
-    for (int i = FIRST_PARTNER[k]; i < FIRST_PARTNER[k + 1]; i++) {
-      int j = PARTNERS[i];
+    for (int i = spans(k).z; i < spans(k).w; i++) {
+      int j = int(texelFetch(uShape, ivec2(i, 3), 0).x);
       // Only a partner holding the exit point can extend it, so one whose bounds miss it is skipped.
       vec3 local = (origin + direction * (exit + EPSILON) - uOffset[j]) * uRotation[j] / uScale[j];
-      vec4 sphere = uPlanes[FIRST_SPHERE + j];
+      vec4 sphere = texelFetch(uShape, ivec2(j, 1), 0);
       vec3 offset = local - sphere.xyz;
       if (dot(offset, offset) > sphere.w) continue;
       vec3 outward;

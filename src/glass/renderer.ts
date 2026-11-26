@@ -1,10 +1,11 @@
 import { bakeEnvironment } from "./environment"
-import { boundingSphere, overlapping, triangulate } from "./geometry"
+import { overlapping, triangulate } from "./geometry"
 import {
   EXPOSURE,
   fragmentShader,
   paperFragmentShader,
   paperVertexShader,
+  shapeTexels,
   vertexShader,
 } from "./shader"
 
@@ -101,7 +102,10 @@ export async function createRenderer(
   gl.bindVertexArray(gl.createVertexArray())
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
 
-  gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, gl.createBuffer())
+  gl.activeTexture(gl.TEXTURE1)
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
@@ -167,7 +171,7 @@ export async function createRenderer(
     const linked = await link(
       gl,
       vertexShader(pieces.length),
-      fragmentShader(pieces, partners, { printed: !!print, inlaid: !!inlay }),
+      fragmentShader(pieces.length, { printed: !!print, inlaid: !!inlay }),
     )
     return () => {
       if (program) gl.deleteProgram(program)
@@ -185,11 +189,24 @@ export async function createRenderer(
         gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride, offset * 4)
       }
 
-      const planes = new Float32Array(
-        [...pieces.flatMap((piece) => piece.planes), ...pieces.map(boundingSphere)].flat(),
+      const shape = shapeTexels(pieces, partners)
+      gl.activeTexture(gl.TEXTURE1)
+      // Images are flipped to GL's bottom-up rows on upload, but these rows are data.
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA32F,
+        shape.width,
+        shape.height,
+        0,
+        gl.RGBA,
+        gl.FLOAT,
+        shape.texels,
       )
-      gl.bufferData(gl.UNIFORM_BUFFER, planes, gl.STATIC_DRAW)
-      gl.uniformBlockBinding(program, gl.getUniformBlockIndex(program, "Planes"), 0)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.uniform1i(uniform("uShape"), 1)
+      gl.uniform1i(uniform("uGroupSize"), Math.max(...partners.map((group) => group.length)))
       if (print) {
         gl.uniform1i(uniform("uPrint"), 2)
         gl.uniform2f(uniform("uPrintSize"), ...print.size)
